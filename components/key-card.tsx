@@ -1,25 +1,28 @@
 'use client'
 
 import { formatUnits, toFunctionSelector } from 'viem'
+import { keyStatus } from '../lib/permissions'
 import type { KeyResult } from '../lib/keys-api'
 
 export const shortAddress = (value: string) => `${value.slice(0, 8)}…${value.slice(-6)}`
 function Address({ value }: { value: string }) {
   return <details className="address"><summary>{shortAddress(value)}</summary><code>{value}</code></details>
 }
-function DateValue({ value }: { value: string }) {
+function relativeDate(value: string) {
+  const days = Math.round((Number(value) * 1000 - Date.now()) / 86_400_000)
+  return Math.abs(days) < 1 ? 'today' : new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(days, 'day')
+}
+function DateValue({ value, showRelative = true }: { value: string; showRelative?: boolean }) {
   const date = new Date(Number(value) * 1000)
-  const days = Math.round((date.getTime() - Date.now()) / 86_400_000)
-  const relative = Math.abs(days) < 1 ? 'today' : new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(days, 'day')
-  return <><time dateTime={date.toISOString()}>{date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time><span className="subtext">{relative}</span></>
+  return <><time dateTime={date.toISOString()}>{date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</time>{showRelative && <span className="subtext">{relativeDate(value)}</span>}</>
 }
 const functions: Record<string, string> = { '0xa9059cbb': 'Transfer', '0x095ea7b3': 'Approve', '0x23b872dd': 'Transfer from',
   [toFunctionSelector('transferWithMemo(address,uint256,bytes32)')]: 'Transfer with memo' }
 
-export function KeyCard({ entry }: { entry: KeyResult }) {
+export function KeyCard({ entry, nowSeconds }: { entry: KeyResult; nowSeconds: number }) {
   const raw = entry.raw
   const never = raw && (BigInt(raw.expiry) === 0n || BigInt(raw.expiry) > 4_000_000_000n)
-  const status = !raw ? 'unavailable' : raw.isRevoked ? 'revoked' : !never && Number(raw.expiry) <= Date.now() / 1000 ? 'expired' : 'active'
+  const status = raw ? keyStatus(raw, nowSeconds) : 'unavailable'
   const positiveLimits = raw?.limits.filter(token => BigInt(token.remaining) > 0n) ?? []
   const zeroLimits = raw?.limits.filter(token => BigInt(token.remaining) === 0n) ?? []
   return <article className="key-card" aria-label={`Key ${entry.key}`}>
@@ -28,9 +31,8 @@ export function KeyCard({ entry }: { entry: KeyResult }) {
     {!raw ? <p role="alert">We couldn't read this key's permissions. Try the lookup again.</p> : raw.isRevoked ? <>
       <p className="mt-5 font-medium">Can’t spend or make calls.</p>
       <p className="subtext">{raw.wasAdmin ? 'Former admin key. ' : ''}The chain has cleared its permissions. Former caps, payees and expiry are unavailable.</p>
-    </> : <>
-      {status === 'expired' && <p className="notice">Can’t spend or make calls. Stored permissions are shown below.</p>}
-      {raw.isAdmin && <p className="notice">Admin key: can create and revoke other keys{status === 'expired' ? ' if active' : ''}.</p>}
+    </> : status === 'expired' ? <div className="notice"><p>Expired on <DateValue value={raw.expiry} showRelative={false} />. It can no longer spend or make calls.</p><span className="subtext">{relativeDate(raw.expiry)}</span></div> : <>
+      {raw.isAdmin && <p className="notice">Admin key: can create and revoke other keys.</p>}
       <dl className="permission-grid">
         <div><dt>Spending cap</dt><dd>{!raw.enforceLimits ? 'No cap' : <>
           <span className="subtext">Remaining allowance · known stablecoins only</span>

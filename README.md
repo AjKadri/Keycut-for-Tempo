@@ -39,17 +39,18 @@ npm run index:build -- --chain mainnet
 
 The first build imports complete local `key-index-42431.json` / `key-index-4217.json` snapshots when present, then tops up to a captured latest block. Committed shards make those raw files optional: later builds scan only newer blocks. Without either source, the builder scans from block 0. Failed or skipped ranges abort publication and leave the existing index unchanged. Build offline, then deploy the finished snapshot with the app, never into a running server's directory.
 
-For keys with `enforceLimits: true`, every known stablecoin's remaining limit is read. For uncapped keys, `limitReads` is marked not applicable and `raw.limits` is empty. The public RPC rejects large read batches and rate-limits overlapping batches; the app queues batches of up to eight calls and retries HTTP 429 twice. Public traffic can still produce partial results or delays.
+Permission profiles for a page are batched through Multicall3 at `0xcA11bde05977b3631167028862bE2a173976CA11`. Bytecode and same-block parity with direct reads were checked on both chains. Active keys with `enforceLimits: true` receive a second page-wide batch for known stablecoin allowances. Expired and revoked keys skip allowances, with an explicit `limitReads` label and empty `raw.limits`. Aggregate failures use bounded direct reads; remaining failures produce a partial result. `permissionReadMethod` and `permissionsAtTimestamp` identify the path and captured status time. RPC delays still vary.
 
 ## Checks
 
 ```sh
 npm test
 npm run typecheck
+node --import tsx scripts/check-multicall.ts
 npm run verify
 npm run gate
 ```
 
-`npm test` checks pure permission descriptions, risk flags and shard merging. `npm run verify` uses the product's own index plus live top-up to print the four known testnet keys and covered block ranges, then runs the leftover-key case with fresh throwaway testnet keys and faucet funds. It prints PASS/FAIL for each claim and exits nonzero on any failure. The admin's revoke must leave the child's 1 AlphaUSD payment working; the child's own revoke must stop it. Payment verdicts use vendor balance changes, with a successful control and confirmed revocations. These are seeded test accounts, not real users. No mainnet writes.
+`npm test` checks pure permission descriptions, risk flags and shard merging. `npm run verify` uses the product's own index plus live top-up to print the four known testnet keys and covered block ranges, then runs the leftover-key case with fresh throwaway testnet keys and faucet funds. It also checks a fresh active child's capped permissions through Multicall3. It prints PASS/FAIL for each claim and exits nonzero on any failure. The admin's revoke must leave the child's 1 AlphaUSD payment working; the child's own revoke must stop it. Payment verdicts use vendor balance changes, with a successful control and confirmed revocations. These are seeded test accounts, not real users. No mainnet writes.
 
 Original research gates remain in `scripts/gates/`. `npm run gate` runs the payment gate and writes ignored results. `npm run keywatch` runs the original research gate, including its full-history benchmark and probes; it isn't the product verifier. `npm run index` runs the original full-network read-only probe and can take several minutes. Add `-- --mainnet` for mainnet.

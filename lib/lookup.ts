@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Address } from 'viem'
-import { Abis } from 'viem/tempo'
-import { chains, readClient, collect, fetchKeyLogs, KEYCHAIN, type ChainName } from './scan'
+import { readPagePermissions } from './permission-reads'
+import { chains, readClient, collect, fetchKeyLogs, type ChainName } from './scan'
 import { mergeEvents, mergeRanges, type IndexMeta, type Shard } from './index'
-import { describePermissions, type KeyPermissions } from './permissions'
+import { describePermissions } from './permissions'
 import tokenSnapshot from './known-tokens.json'
 
 export const PAGE_SIZE = 25
@@ -18,7 +18,8 @@ export async function lookupKeys(name: ChainName, address: Address, page = 1) {
   const meta = JSON.parse(await readFile(path.join(directory, 'meta.json'), 'utf8')) as IndexMeta
   if (!meta.complete || meta.chainId !== chain.id) throw new Error('A complete index for this chain is unavailable')
   const shard = JSON.parse(await readFile(path.join(directory, `${account.slice(2, 4)}.json`), 'utf8')) as Shard
-  const latest = Number(await client.getBlockNumber())
+  const head = await client.getBlock({ blockTag: 'latest' })
+  const latest = Number(head.number), nowSeconds = Number(head.timestamp)
   if (latest < meta.completeThroughBlock) throw new Error('RPC is behind the index snapshot')
   const topUp = await collect(fetchKeyLogs(client, account), BigInt(meta.completeThroughBlock + 1), BigInt(latest), 12_000)
   const entries = mergeEvents({ [account]: shard[account] ?? [] }, topUp.events)[account] ?? []
@@ -26,45 +27,27 @@ export async function lookupKeys(name: ChainName, address: Address, page = 1) {
   const completeThroughBlock = coveredRanges[0]![1]
   const blockNumber = BigInt(latest)
   const tokens = tokenSnapshot.tokens.filter((token) => token.chainId === chain.id)
-  let readsComplete = true
-  const keys = []
   const selected = entries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  // Four keys at a time. HTTP batching coalesces their read calls without
-  // relying on a multicall contract. Reads use the same captured block.
-  for (let offset = 0; offset < selected.length; offset += 4) {
-    keys.push(...await Promise.all(selected.slice(offset, offset + 4).map(async ([key, firstSeenBlock, eventFlags]) => {
-      const keyId = key as Address
-      const base = { address: KEYCHAIN, abi: Abis.accountKeychain, blockNumber } as const
-      try {
-        const [info, isAdmin, [isScoped, scopes]] = await Promise.all([
-          client.readContract({ ...base, functionName: 'getKey', args: [account, keyId] }),
-          client.readContract({ ...base, functionName: 'isAdminKey', args: [account, keyId] }),
-          client.readContract({ ...base, functionName: 'getAllowedCalls', args: [account, keyId] }),
-        ])
-        // No remaining-limit reads are meaningful when the chain explicitly
-        // says this key doesn't enforce a spending cap (including tombstones).
-        const limits = info.enforceLimits ? await Promise.all(tokens.map(async ({ chainId: _, ...token }) => {
-            const [remaining, periodEnd] = await client.readContract({ ...base,
-              functionName: 'getRemainingLimitWithPeriod', args: [account, keyId, token.address as Address] })
-            return { ...token, remaining: remaining.toString(), periodEnd: periodEnd.toString() }
-          })) : []
-        const raw: KeyPermissions = { ...info, expiry: info.expiry.toString(), isAdmin,
-          wasAdmin: Boolean(eventFlags & 1), isScoped, scopes, limits }
-        return { key: keyId, firstSeenBlock, eventFlags, ...describePermissions(raw, Math.floor(Date.now() / 1000)),
-          limitReads: info.enforceLimits ? 'known stablecoins only' : 'not applicable: no spending cap enforced', raw }
-      } catch (error) {
-        console.error('Key permission read failed', keyId, (error as Error).message.split('\n')[0])
-        readsComplete = false
-        return { key: keyId, firstSeenBlock, eventFlags, status: 'unavailable' as const,
-          sentence: "This key's permissions couldn't be read. Try again.", riskFlags: [], raw: null }
-      }
-    })))
-  }
+  const { permissions, method } = await readPagePermissions(client, name, account,
+    selected.map(([key]) => key as Address), tokens, blockNumber, nowSeconds)
+  const keys = selected.map(([key, firstSeenBlock, eventFlags], index) => {
+    const raw = permissions[index]
+    if (!raw) return { key, firstSeenBlock, eventFlags, status: 'unavailable' as const,
+      sentence: "This key's permissions couldn't be read. Try again.", riskFlags: [], raw: null,
+      limitReads: 'unavailable' }
+    raw.wasAdmin = Boolean(eventFlags & 1)
+    const description = describePermissions(raw, nowSeconds)
+    return { key, firstSeenBlock, eventFlags, ...description, raw,
+      limitReads: description.status !== 'active' ? `not read: key is ${description.status}`
+        : raw.enforceLimits ? 'known stablecoins only' : 'not applicable: no spending cap enforced' }
+  })
+  const readsComplete = permissions.every(raw => raw !== null)
   const complete = topUp.complete && readsComplete
   return { chain: name, chainId: chain.id, account, page, pageSize: PAGE_SIZE,
     totalKeys: entries.length, totalPages: Math.ceil(entries.length / PAGE_SIZE), keys,
     complete, discoveryComplete: topUp.complete, readsComplete, completeThroughBlock,
     coveredRanges, missingRanges: topUp.missingRanges, latestBlock: latest, permissionsAtBlock: latest,
+    permissionsAtTimestamp: nowSeconds, permissionReadMethod: method,
     snapshot: { builtAt: meta.builtAt, completeThroughBlock: meta.completeThroughBlock },
     checkedAt: new Date().toISOString(), limitsCoverage: 'known stablecoins only',
     tokenList: { source: tokenSnapshot.source, retrievedAt: tokenSnapshot.retrievedAt, tokens },

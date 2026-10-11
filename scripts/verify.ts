@@ -57,6 +57,14 @@ async function verifyLeftoverKey() {
   claim('Admin key issues the child key', issued.status === 'success', `https://explore.testnet.tempo.xyz/tx/${hash}`)
   if (issued.status !== 'success') throw new Error('Child authorization failed')
 
+  const page = await lookupKeys('testnet', root.address)
+  const discoveredChild = page.keys.find(key => key.key.toLowerCase() === child.accessKeyAddress.toLowerCase())
+  const allowance = discoveredChild?.raw?.limits.find(limit => limit.address.toLowerCase() === token.toLowerCase())
+  claim('Product batches active capped permissions correctly', page.complete && page.permissionReadMethod === 'multicall3' &&
+    discoveredChild?.status === 'active' && allowance?.remaining === parseUnits('20', 6).toString() &&
+    discoveredChild.raw?.scopes[0]?.selectorRules[0]?.recipients[0]?.toLowerCase() === vendor.toLowerCase(),
+    `fresh child allowance ${allowance?.remaining ?? 'unavailable'} base units; reads via ${page.permissionReadMethod}`)
+
   const balance = () => sender.readContract({ address: token, abi: Abis.tip20, functionName: 'balanceOf', args: [vendor] })
   async function payment() {
     const before = await balance()

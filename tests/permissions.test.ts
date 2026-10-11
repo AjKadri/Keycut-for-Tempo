@@ -68,10 +68,17 @@ test('zero allowances and finite periods are explicit', () => {
   assert.match(describePermissions({ ...base, limits: [{ ...token, remaining: '1000000', periodEnd: '1500' }] }, 1000).sentence, /1 AlphaUSD until 1970-01-01T00:25:00.000Z/)
 })
 
- test('each generated sentence starts with a capital letter', () => {
+test('each generated sentence starts with a capital letter', () => {
   for (const raw of [base, { ...base, expiry: '0', enforceLimits: false, isScoped: false },
     { ...base, isAdmin: true }, { ...base, scopes: [] }]) {
     const sentence = describePermissions(raw, 1000).sentence
     assert.doesNotMatch(sentence, /(?:^|\. )[a-z]/)
   }
+})
+
+test('expired keys explain the date and cannot suggest usable permissions or zero allowances', () => {
+  const result = describePermissions({ ...base, limits: [] }, 2000)
+  assert.equal(result.sentence, 'Expired on 1970-01-01T00:33:20.000Z. It can no longer spend or make calls.')
+  assert.deepEqual(result.riskFlags, [])
+  assert.doesNotMatch(result.sentence, /Current chain permissions|allowance|cap/)
 })
