@@ -3,26 +3,29 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { fetchKeys, type KeysResult } from '../lib/keys-api'
 import { permissionSummaries } from '../lib/permission-summary'
+import example from '../lib/leftover-example.json'
 import { KeyCard } from './key-card'
 
-export function AccountView({ chain, address, page }: { chain: string; address: string; page: number }) {
-  const [state, setState] = useState<{ id: string; data?: KeysResult; error?: string }>({ id: '' })
+export function AccountView({ chain, address, page, initialData }: { chain: string; address: string; page: number; initialData?: KeysResult }) {
+  const [state, setState] = useState<{ id: string; data?: KeysResult; error?: string }>({ id: initialData ? `${chain}:${address}:${page}:0` : '', data: initialData })
   const [attempt, setAttempt] = useState(0)
   const id = `${chain}:${address}:${page}:${attempt}`
   const current = state.id === id ? state : undefined
   const data = current?.data, error = current?.error, loading = !data && !error
   useEffect(() => {
+    if (attempt === 0 && initialData) setState({ id, data: initialData })
     const controller = new AbortController()
     fetchKeys(chain, address, page, controller.signal).then(data => setState({ id, data }), error => {
       if (!controller.signal.aborted) setState({ id, error: error.message })
     })
     return () => controller.abort()
-  }, [chain, address, page, id])
+  }, [chain, address, page, id, initialData, attempt])
   const href = (value: number) => `/${chain}/${address}?page=${value}`
   return <main className="account-shell">
     <header className="page-header"><Link href="/" className="brand">Keycut for Tempo</Link><Link href="/">Look up another account</Link></header>
     <p className="eyebrow">{chain === 'mainnet' ? 'Mainnet · read only' : chain === 'testnet' ? 'Testnet · Moderato' : 'Unknown network'}</p>
-    <h1>Account keys</h1><p className="account-address">{address}</p>
+    <h1>Account keys</h1>
+    {chain === 'testnet' && address.toLowerCase() === example.account.toLowerCase() && <div className="notice"><p>Seeded demo account on the test network. Not real funds.</p><p>The admin key was revoked. Its child still has a small spending cap and remains active until its expiry. This relationship is known from this demo’s setup, not inferred from key events.</p><p>Admin: <code>{example.admin}</code><br />Child: <code>{example.child}</code></p><details><summary>Setup transactions</summary>{(example.transactions as { hash: string; url: string; label: string }[]).map(tx => <p key={tx.hash}><a href={tx.url} target="_blank" rel="noreferrer">{tx.label}</a></p>)}</details></div>}<p className="account-address">{address}</p>
     <div className="coverage" role="status" aria-live="polite">
       {data ? <><p>{data.coverageSentence}</p><span className="subtext">Live permissions at block {data.permissionsAtBlock.toLocaleString()} · Checked {new Date(data.checkedAt).toLocaleString()}. Caps cover known stablecoins only.</span></> : <p>{loading ? 'Coverage pending. Checking indexed history and topping up to the latest block…' : 'Coverage unavailable. This lookup did not return a result.'}</p>}
     </div>

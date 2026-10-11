@@ -2,7 +2,7 @@
 
 See who can spend. Cut unwanted access.
 
-Look up an account on testnet or mainnet to see its keys, spending allowances, recipients, expiry and risk flags. The interactive demo isn't built yet.
+Look up an account on testnet or mainnet to see its keys, spending allowances, recipients, expiry and risk flags. Try the [live demo](https://keycut.ajkadri.dev/demo) to see a child key keep paying after its admin is revoked, then stop paying after its own revoke.
 
 ## Run
 
@@ -54,3 +54,20 @@ npm run gate
 `npm test` checks pure permission descriptions, risk flags and shard merging. `npm run verify` uses the product's own index plus live top-up to print the four known testnet keys and covered block ranges, then runs the leftover-key case with fresh throwaway testnet keys and faucet funds. It also checks a fresh active child's capped permissions through Multicall3. It prints PASS/FAIL for each claim and exits nonzero on any failure. The admin's revoke must leave the child's 1 AlphaUSD payment working; the child's own revoke must stop it. Payment verdicts use vendor balance changes, with a successful control and confirmed revocations. These are seeded test accounts, not real users. No mainnet writes.
 
 Original research gates remain in `scripts/gates/`. `npm run gate` runs the payment gate and writes ignored results. `npm run keywatch` runs the original research gate, including its full-history benchmark and probes; it isn't the product verifier. `npm run index` runs the original full-network read-only probe and can take several minutes. Add `-- --mainnet` for mainnet.
+
+## Testnet demo
+
+`/demo` runs four real steps on Moderato (42431), with the actual account page alongside them and explorer links as transactions complete. All demo accounts are seeded test data, not real users or funds. Payment outcomes come from the vendor’s before/after balance. A refused submission may have no transaction hash; the page says so rather than inventing a link. Unknown outcomes are reported as unconfirmed.
+
+Configure `KEYCUT_BANK_PRIVATE_KEY` and a random `KEYCUT_DEMO_SECRET` (at least 32 characters) in the server environment only. Set `KEYCUT_DEMO_ORIGIN` to the public site origin (for this deployment, `https://keycut.ajkadri.dev`) so POST origin checks work behind the proxy. Use a throwaway testnet bank key, never a mainnet key. Do not commit either value. The bank sends 10 test AlphaUSD to each fresh account. Demo creation never calls the faucet.
+
+```sh
+node --import tsx scripts/demo-bank.ts status
+node --import tsx scripts/demo-bank.ts top-up
+```
+
+Only the explicit `top-up` command calls the faucet for the bank. Check the bank before judging. The public demo allows 5 creation attempts per IP per hour, with HTTP 429 and `Retry-After`. Like lookup limits, this counter is process-local and resets on restart. Deploy one process behind Caddy on loopback.
+
+Demo routes accept only numeric `chainId: 42431` and, for pay/revoke, a server-issued encrypted session. They reject browser-supplied keys, other networks and cross-origin calls. Session keys are freshly generated on the server, sealed with authenticated encryption, and never stored on disk. The browser keeps only the opaque token in memory; reloading loses the session. A session expires after two hours. Operations are serialized per account and bank funding is serialized. Tokens are bearer capabilities for these throwaway accounts; an old token cannot restore revoked access.
+
+The home page’s “See a leftover key” opens one permanent seeded example, recorded in `lib/leftover-example.json` with public setup evidence. Its admin is revoked, its child has a 3 test AlphaUSD cap and a one-year expiry. This known relationship comes from setup transactions, not inferred event lineage. The example links prefetch the real product lookup and its server-rendered page, with live coverage. The browser also refreshes the lookup after navigation. No setup or demo bank is needed to view it. Its long expiry is finite and its displayed state is read live.

@@ -63,3 +63,21 @@ pre { overflow: auto; background: #f8fafc; padding: 12px; margin-top: 12px; max-
 .pagination input { width: 80px; }
 footer { margin-top: 40px; color: #475569; font-size: .8rem; line-height: 1.7; padding-bottom: 24px; }
 @media (max-width: 640px) { .permission-grid { grid-template-columns: 1fr; gap: 20px; } .key-card { padding: 20px 16px; } .account-shell { padding: 20px 16px; } .coverage { padding: 12px; font-size: .8rem; } }
+
+.demo-shell { max-width: 1240px; margin: 0 auto; padding: 40px 24px; }
+.demo-shell > h1 { max-width: 850px; }
+.demo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 28px; margin-top: 32px; align-items: start; }
+.demo-step { border: 1px solid var(--border, #dce4e1); border-radius: 12px; padding: 22px; margin-bottom: 16px; background: white; }
+.demo-step.current { border-color: #167d6b; }
+.demo-step h2, .demo-live h2 { font-size: 22px; margin: 8px 0 12px; }
+.demo-step p { margin-bottom: 14px; }
+.demo-step button { margin-top: 8px; }
+.demo-step button:disabled { opacity: .6; cursor: wait; }
+.transaction-list { list-style: decimal; padding-left: 20px; font-size: 14px; }
+.transaction-list li { margin: 10px 0; }
+.demo-live { min-width: 0; }
+.demo-live code { overflow-wrap: anywhere; }
+.demo-live iframe { display: block; width: 100%; height: 1050px; margin-top: 16px; border: 1px solid #dce4e1; border-radius: 12px; background: white; }
+@media (max-width: 800px) { .demo-grid { grid-template-columns: 1fr; } .demo-shell { padding: 24px 16px; } .demo-step { padding: 18px; } }
+
+.notice code { overflow-wrap: anywhere; }

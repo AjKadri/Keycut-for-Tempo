@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import example from '../lib/leftover-example.json'
 import { LookupForm } from '../components/lookup-form'
 export default function Home() {
   return <main className="home-shell">
@@ -7,7 +8,9 @@ export default function Home() {
     <p className="intro">Find an account’s keys, read their permissions and spot access that’s still open.</p>
     <LookupForm />
     <p className="subtext mt-5">Read-only. No wallet needed. History coverage is shown with every lookup.</p>
-    <Link className="example-link" href="/testnet/0x907B843c995E9332caf4A0A832B2B1fbCD1E9477">View the seeded testnet example →</Link>
+    <div className="mt-5"><Link className="example-link" href="/demo">Try the live demo</Link></div>
+    <Link className="example-link" href={`/testnet/${example.account}`} prefetch={true}>See a leftover key</Link>
+    <p className="subtext">Seeded testnet example. Not real funds. No setup needed.</p>
     <footer>Removing an admin key leaves its child keys in place. Check what can still spend.</footer>
   </main>
 }

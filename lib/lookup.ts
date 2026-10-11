@@ -69,3 +69,8 @@ export function cachedLookup(name: ChainName, address: Address, page: number) {
     () => { if (cache.get(id)?.result === result) cache.delete(id) })
   return result
 }
+
+export function invalidateLookup(name: ChainName, address: Address) {
+  const prefix = `${name}:${address.toLowerCase()}:`
+  for (const id of cache.keys()) if (id.startsWith(prefix)) cache.delete(id)
+}

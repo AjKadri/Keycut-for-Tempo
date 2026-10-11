@@ -1,0 +1,31 @@
+{
+  "account": "0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A",
+  "admin": "0xd56c1b52befc6836322b88a0a0fdc5fc151af525",
+  "child": "0xfbd38d9dc108b3601fa555bb64a3e2c2ee7516c1",
+  "vendor": "0x094DbA9Cb032E96955Fd6BbF67770e917d725EdC",
+  "chainId": 42431,
+  "expiry": "1823282528",
+  "createdAt": "2026-10-11T19:22:11.489Z",
+  "transactions": [
+    {
+      "label": "Bank funded the fresh account with 10 test AlphaUSD",
+      "hash": "0x00731e43c5f443a911327e66892411fb59bfd5da764bf364f427145870f22af2",
+      "url": "https://explore.testnet.tempo.xyz/tx/0x00731e43c5f443a911327e66892411fb59bfd5da764bf364f427145870f22af2"
+    },
+    {
+      "label": "Created the admin key",
+      "hash": "0x39855fb875c1f77b12c628c69616362028cd2f3868f2ca408d49048059536c7f",
+      "url": "https://explore.testnet.tempo.xyz/tx/0x39855fb875c1f77b12c628c69616362028cd2f3868f2ca408d49048059536c7f"
+    },
+    {
+      "label": "Admin created a child key with a 3 AlphaUSD cap",
+      "hash": "0xec0691be01dc0f5d48da01d79535d15bf48b969a396c7294489d4dfb79a3a874",
+      "url": "https://explore.testnet.tempo.xyz/tx/0xec0691be01dc0f5d48da01d79535d15bf48b969a396c7294489d4dfb79a3a874"
+    },
+    {
+      "label": "Revoked the admin key",
+      "hash": "0xb9ce564d404fa330b71bd01edc8f5f8aedb6a83b25425e58ccda8996295c250f",
+      "url": "https://explore.testnet.tempo.xyz/tx/0xb9ce564d404fa330b71bd01edc8f5f8aedb6a83b25425e58ccda8996295c250f"
+    }
+  ]
+}
