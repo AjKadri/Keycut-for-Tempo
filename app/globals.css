@@ -32,14 +32,14 @@ h2 { font-size: 1.15rem; font-weight: 600; }
 .subtext { display: block; color: #475569; font-size: .8rem; line-height: 1.55; margin-top: 4px; }
 .results-heading { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; margin: 28px 0 16px; }
 .results-heading span { color: #475569; font-size: .875rem; }
-.key-list { display: grid; gap: 18px; }
-.key-card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; background: white; }
+.key-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.key-card { min-width: 0; border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; background: white; }
 .card-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .address { min-width: 0; font-family: monospace; font-size: .85rem; }
 .address summary { cursor: pointer; color: #0f766e; }
 .address code { display: block; overflow-wrap: anywhere; margin: 8px 0; }
-.badge { text-transform: capitalize; font-size: .75rem; font-weight: 600; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 20px; }
-.badge.active { background: #ccfbf1; border-color: #5eead4; color: #115e59; }
+.badge { font-size: .75rem; font-weight: 600; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 20px; }
+.badge.active { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
 .badge.revoked, .badge.expired, .badge.unavailable { background: #f1f5f9; color: #475569; }
 .permission-grid { display: grid; grid-template-columns: 1fr 1.2fr .9fr; gap: 24px; margin-top: 24px; }
 dt { color: #475569; font-size: .8rem; margin-bottom: 8px; }
@@ -77,7 +77,28 @@ footer { margin-top: 40px; color: #475569; font-size: .8rem; line-height: 1.7; p
 .transaction-list li { margin: 10px 0; }
 .demo-live { min-width: 0; }
 .demo-live code { overflow-wrap: anywhere; }
-.demo-live iframe { display: block; width: 100%; height: 1050px; margin-top: 16px; border: 1px solid #dce4e1; border-radius: 12px; background: white; }
 @media (max-width: 800px) { .demo-grid { grid-template-columns: 1fr; } .demo-shell { padding: 24px 16px; } .demo-step { padding: 18px; } }
 
 .notice code { overflow-wrap: anywhere; }
+
+.card-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: end; }
+.badge.risk-high, .risks.risk-high span { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.badge.risk-review, .risks.risk-review span { background: #fefce8; border-color: #fde047; color: #854d0e; }
+.compact-key { padding: 14px 18px; background: #f8fafc; }
+.compact-key > summary { cursor: pointer; font-size: .875rem; color: #475569; }
+.compact-key > summary > span { margin-left: 10px; }
+.compact-address { font-family: monospace; }
+.compact-body { margin-top: 16px; }
+.compact-body > code { display: block; overflow-wrap: anywhere; font-size: .8rem; }
+.key-action { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.key-action summary { color: #0f766e; cursor: pointer; font-weight: 600; }
+.key-action button { margin-top: 12px; font-size: .875rem; }
+.key-action button:disabled { opacity: .55; cursor: default; }
+.action-link { display: inline-block; border: 1px solid #0f766e; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
+.embedded-account { padding: 20px; margin-top: 16px; background: white; border: 1px solid #dce4e1; border-radius: 12px; }
+.embedded-account h1 { font-size: 1.6rem; }
+.embedded-account .permission-grid { grid-template-columns: 1fr; gap: 20px; }
+.embedded-account .page-header { margin-bottom: 24px; }
+@media (max-width: 640px) { .compact-key { padding: 12px; } .compact-key > summary > span { margin-left: 4px; } .embedded-account { padding: 16px; } }
+
+.how-to-revoke pre { white-space: pre-wrap; overflow-wrap: anywhere; }

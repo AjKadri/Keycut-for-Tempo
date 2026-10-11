@@ -21,8 +21,8 @@ export async function createDemo(onEvent: (event: DemoEvent) => void) {
   }
   if (!ready) throw new Error('Demo setup was interrupted. The leftover example is still available.')
 }
-export async function demoAction(action: 'pay' | 'revoke', session: string): Promise<ActionResult> {
-  const response = await fetch(`/api/demo/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chainId: 42431, session }) })
+export async function demoAction(action: 'pay' | 'revoke', session: string, keyId?: string): Promise<ActionResult> {
+  const response = await fetch(`/api/demo/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chainId: 42431, session, ...(keyId ? { keyId } : {}) }) })
   const result = await response.json()
   if (!response.ok) throw new Error(result.error)
   return result

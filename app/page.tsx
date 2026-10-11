@@ -11,6 +11,6 @@ export default function Home() {
     <div className="mt-5"><Link className="example-link" href="/demo">Try the live demo</Link></div>
     <Link className="example-link" href={`/testnet/${example.account}`} prefetch={true}>See a leftover key</Link>
     <p className="subtext">Seeded testnet example. Not real funds. No setup needed.</p>
-    <footer>Removing an admin key leaves its child keys in place. Check what can still spend.</footer>
+    <footer>Removing an admin key leaves its child keys in place. Check what can still spend. No tool we found lists these keys.</footer>
   </main>
 }

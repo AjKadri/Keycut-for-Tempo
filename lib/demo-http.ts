@@ -1,3 +1,4 @@
+import { isAddress, type Address } from 'viem'
 import { isIP } from 'node:net'
 import { openSession, type DemoSession } from './demo-session'
 
@@ -13,7 +14,7 @@ export async function demoBody(request: Request, action: 'create' | 'pay' | 'rev
   let body: Record<string, unknown>
   try { body = JSON.parse(text) } catch { throw new DemoRequestError('Send a valid JSON demo request.') }
   if (!body || typeof body !== 'object' || Array.isArray(body) || body.chainId !== 42431) throw new DemoRequestError('Demo routes only allow test network 42431.')
-  const allowed = action === 'create' ? ['chainId'] : ['chainId', 'session']
+  const allowed = action === 'create' ? ['chainId'] : action === 'revoke' ? ['chainId', 'session', 'keyId'] : ['chainId', 'session']
   if (Object.keys(body).some(key => !allowed.includes(key))) throw new DemoRequestError('Demo routes accept only the testnet chain ID and an issued demo session. Do not send keys.')
   if (action === 'create') {
     const forwarded = request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim()
@@ -29,8 +30,10 @@ export async function demoBody(request: Request, action: 'create' | 'pay' | 'rev
   if (typeof body.session !== 'string') throw new DemoRequestError('An issued demo session is required.')
   let session: DemoSession
   try { session = openSession(body.session) } catch (error) { throw new DemoRequestError((error as Error).message) }
-  if (action === 'pay' ? !['leftover', 'revoked'].includes(session.phase) : session.phase !== 'paid') throw new DemoRequestError('Complete the demo steps in order.')
-  return session
+  const keyId = action === 'revoke' ? body.keyId ?? session.childId : undefined
+  if (keyId !== undefined && (typeof keyId !== 'string' || !isAddress(keyId, { strict: false }) || !(session.keyIds ?? [session.childId]).some(key => key.toLowerCase() === keyId.toLowerCase()))) throw new DemoRequestError('Choose a key issued by this demo account.')
+  if (action === 'pay' ? !['leftover', 'revoked'].includes(session.phase) : keyId?.toLowerCase() === session.childId.toLowerCase() && session.phase !== 'paid') throw new DemoRequestError('Complete the demo steps in order.')
+  return { session, keyId: keyId as Address | undefined }
 }
 export function demoError(error: unknown) {
   const known = error instanceof DemoRequestError

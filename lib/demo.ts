@@ -2,6 +2,7 @@ import { BaseError, RpcRequestError, parseUnits, type Address, type Hex } from '
 import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'
 import { tempoModerato } from 'viem/chains'
 import { Abis, Account, Addresses, createClient } from 'viem/tempo'
+import { keyStatus } from './permissions'
 import { invalidateLookup } from './lookup'
 import { sealSession, type DemoSession } from './demo-session'
 
@@ -55,9 +56,11 @@ export async function createScenario(emit: (event: DemoEvent) => void, permanent
   }
   record('Bank funded the fresh account with 10 test AlphaUSD', await fund(root.address))
   const expiry = BigInt(Math.floor(Date.now() / 1000) + (permanent ? 365 * 86400 : 7200))
+  const keyIds: Address[] = [admin.accessKeyAddress, child.accessKeyAddress]
   if (!permanent) {
     const limited = Account.fromSecp256k1(generatePrivateKey(), { access: root })
     const risky = Account.fromSecp256k1(generatePrivateKey(), { access: root })
+    keyIds.push(limited.accessKeyAddress, risky.accessKeyAddress)
     const limitedTx = await sender.accessKey.authorizeSync({ accessKey: limited, expiry: Number(expiry), limits: [{ token: ALPHA, limit: parseUnits('2', 6), period: 0 }], scopes: [{ address: ALPHA, selector: 'transfer(address,uint256)', recipients: [vendor] }] })
     record('Created a limited key', limitedTx.receipt.transactionHash)
     const riskyTx = await sender.accessKey.authorizeSync({ accessKey: risky })
@@ -78,7 +81,7 @@ export async function createScenario(emit: (event: DemoEvent) => void, permanent
   const [adminInfo, childInfo] = await Promise.all([admin, child].map(key => sender.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [root.address, key.accessKeyAddress] })))
   if (!adminInfo!.isRevoked || childInfo!.isRevoked) throw new Error('Could not confirm the leftover-key state.')
   invalidateLookup('testnet', root.address)
-  const session: DemoSession = { chainId: 42431, root: rootKey, child: childKey, account: root.address, admin: admin.accessKeyAddress, childId: child.accessKeyAddress, vendor, expires: Date.now() + 7200_000, phase: 'leftover' }
+  const session: DemoSession = { chainId: 42431, root: rootKey, child: childKey, account: root.address, admin: admin.accessKeyAddress, childId: child.accessKeyAddress, vendor, keyIds, expires: Date.now() + 7200_000, phase: 'leftover' }
   return { session, transactions, expiry: expiry.toString() }
 }
 export async function payChild(session: DemoSession) {
@@ -106,14 +109,18 @@ export async function payChild(session: DemoSession) {
     explanation: expectedRefusal ? 'The key was revoked, so the network refused the payment. The vendor received 0.' : 'The admin key is revoked, but its child still paid. The vendor received 1 test AlphaUSD.',
     submission: hash ? 'Transaction confirmed.' : 'The network refused the attempt before returning a transaction hash.' }
 }
-export async function revokeChild(session: DemoSession) {
+export async function revokeChild(session: DemoSession, keyId: Address = session.childId) {
   const sender = rootClient(session.root)
   await testnet(sender)
-  const child = Account.fromSecp256k1(session.child, { access: sender.account })
-  const result = await sender.accessKey.revokeSync({ accessKey: child })
-  const info = await sender.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [session.account, session.childId] })
+  if (!(session.keyIds ?? [session.childId]).some(key => key.toLowerCase() === keyId.toLowerCase())) throw new Error('This key was not issued by this demo.')
+  const before = await sender.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [session.account, keyId] })
+  const head = await sender.getBlock({ blockTag: 'latest' })
+  if (keyStatus({ expiry: before.expiry.toString(), isRevoked: before.isRevoked }, Number(head.timestamp)) !== 'active') throw new Error('This key is already inactive.')
+  const result = await sender.accessKey.revokeSync({ accessKey: keyId })
+  const info = await sender.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [session.account, keyId] })
   if (!info.isRevoked) throw new Error('The child revocation could not be confirmed.')
   invalidateLookup('testnet', session.account)
   const hash = result.receipt.transactionHash
-  return { session: sealSession({ ...session, phase: 'revoked' }), hash, url: txLink(hash), explanation: 'The child key is now revoked. It can no longer spend or make calls.' }
+  const isChild = keyId.toLowerCase() === session.childId.toLowerCase()
+  return { session: sealSession({ ...session, phase: isChild ? 'revoked' : session.phase }), hash, url: txLink(hash), explanation: `${isChild ? 'The child key' : 'This key'} is now revoked. It can no longer spend or make calls.` }
 }

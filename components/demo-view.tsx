@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { createDemo, demoAction, type DemoReady, type ActionResult } from '../lib/demo-api'
 import type { DemoEvent } from '../lib/demo'
+import { AccountView } from './account-view'
 import example from '../lib/leftover-example.json'
 
 const titles = ['Create the leftover key', 'Prove it can still pay', 'Revoke the child key', 'Try the payment again']
@@ -27,6 +28,16 @@ export function DemoView() {
         setReady({ ...ready, session: result.session }); setStep(step + 1); setVersion(value => value + 1)
       }
     } catch (error) { setError((error as Error).message) } finally { setBusy(false) }
+  }
+  async function revokeFromCard(key: string) {
+    setBusy(true)
+    try {
+      const result = await demoAction('revoke', ready!.session, key)
+      setReady(previous => previous && ({ ...previous, session: result.session }))
+      if (key.toLowerCase() === ready!.child.toLowerCase()) { setResults(previous => ({ ...previous, 2: result })); setStep(3) }
+      setVersion(value => value + 1)
+      return result
+    } finally { setBusy(false) }
   }
   const account = ready?.account
   return <main className="demo-shell">
@@ -55,7 +66,7 @@ export function DemoView() {
       </section>
       <section className="demo-live" aria-label="Actual Keycut account page">
         <h2>Live account view</h2>
-        {account ? <><p className="subtext">Admin key: <code>{ready.admin}</code><br />Child key: <code>{ready.child}</code></p><Link href={`/testnet/${account}`} target="_blank">Open this account page</Link><iframe key={version} title="Actual Keycut account page for this demo" src={`/testnet/${account}?demo=1&refresh=${version}`} /></> : <div className="state-panel"><h3>Your account appears here</h3><p>The actual Keycut account page loads beside these steps after setup. It reads the same index, top-up and live permissions as any lookup.</p></div>}
+        {account ? <><p className="subtext">Admin key: <code>{ready.admin}</code><br />Child key: <code>{ready.child}</code></p><Link href={`/testnet/${account}`} target="_blank">Open this account page</Link><AccountView key={account} chain="testnet" address={account} page={1} embedded refreshVersion={version} demo={{ child: ready.child, childCanRevoke: step >= 2, busy, onRevoke: revokeFromCard }} /></> : <div className="state-panel"><h3>Your account appears here</h3><p>The actual Keycut account page loads beside these steps after setup. It reads the same index, top-up and live permissions as any lookup.</p></div>}
       </section>
     </div>
     <footer>Live transactions on Tempo testnet only. Test AlphaUSD has no real value. If a transaction cannot be confirmed, the demo reports an unknown outcome.</footer>

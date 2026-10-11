@@ -3,7 +3,7 @@ import type { Address, Hex } from 'viem'
 
 export type DemoSession = {
   chainId: 42431; root: Hex; child: Hex; account: Address; admin: Address; childId: Address;
-  vendor: Address; expires: number; phase: 'leftover' | 'paid' | 'revoked' | 'finished'
+  vendor: Address; keyIds?: Address[]; expires: number; phase: 'leftover' | 'paid' | 'revoked' | 'finished'
 }
 function secret() {
   const value = process.env.KEYCUT_DEMO_SECRET

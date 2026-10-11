@@ -51,7 +51,7 @@ export async function lookupKeys(name: ChainName, address: Address, page = 1) {
     snapshot: { builtAt: meta.builtAt, completeThroughBlock: meta.completeThroughBlock },
     checkedAt: new Date().toISOString(), limitsCoverage: 'known stablecoins only',
     tokenList: { source: tokenSnapshot.source, retrievedAt: tokenSnapshot.retrievedAt, tokens },
-    coverageSentence: `${complete ? 'Complete' : 'Partial result'}. ${entries.length} keys found. History covered through block ${completeThroughBlock}${topUp.missingRanges.length ? `. Missing ranges: ${topUp.missingRanges.map(([from, to]) => `${from} to ${to}`).join(', ')}` : ''}.${readsComplete ? '' : ' Some live permissions are unavailable.'}`,
+    coverageSentence: `${complete ? `Complete: all ${entries.length} keys found` : `Partial: ${entries.length} keys found`}, checked through block ${completeThroughBlock}${topUp.missingRanges.length ? `, missing ranges ${topUp.missingRanges.map(([from, to]) => `${from} to ${to}`).join(', ')}` : ''}${readsComplete ? '' : ', some live permissions unavailable'}.`,
   }
 }
 
