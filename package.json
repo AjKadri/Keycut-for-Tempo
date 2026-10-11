@@ -8,9 +8,10 @@
     "start": "next start",
     "index": "tsx scripts/gates/index-probe.ts",
     "keywatch": "tsx scripts/gates/keywatch-gate.ts",
-    "verify": "tsx scripts/gates/keywatch-gate.ts",
+    "verify": "tsx scripts/verify.ts",
+    "index:build": "tsx scripts/index-build.ts",
     "gate": "tsx scripts/gates/gate.ts",
-    "test": "npm run index -- --selftest",
+    "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

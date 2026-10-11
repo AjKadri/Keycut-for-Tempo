@@ -1,0 +1,17 @@
+{
+  "chainId": 42431,
+  "complete": true,
+  "completeThroughBlock": 39151083,
+  "builtAt": "2026-10-11T16:05:58.338Z",
+  "counts": {
+    "accounts": 229465,
+    "keys": 303053,
+    "adminKeys": 347,
+    "revokedKeys": 10957
+  },
+  "source": {
+    "kind": "import",
+    "importedThroughBlock": 39142341,
+    "importedBuiltAt": "2026-10-11T14:47:05.793Z"
+  }
+}
