@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+.env*
+!.env.example
+.DS_Store
+# raw scan output; the app uses the sharded copy in public/index/
+key-index-*.json
+*.log
+.agent/
+AGENTS.md
+PLAN.md
+STATUS.md
+*-result.json
+*.tsbuildinfo
+.vercel/
