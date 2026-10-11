@@ -1,11 +1,11 @@
 {
   "chainId": 4217,
   "complete": true,
-  "completeThroughBlock": 43660084,
-  "builtAt": "2026-10-11T16:06:00.956Z",
+  "completeThroughBlock": 43687072,
+  "builtAt": "2026-10-11T20:16:13.253Z",
   "counts": {
-    "accounts": 5421,
-    "keys": 12510,
+    "accounts": 5422,
+    "keys": 12512,
     "adminKeys": 0,
     "revokedKeys": 764
   },

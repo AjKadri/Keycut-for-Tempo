@@ -14,18 +14,19 @@ function Address({ value }: { value: string }) {
 const functions: Record<string, string> = { '0xa9059cbb': 'Transfer', '0x095ea7b3': 'Approve', '0x23b872dd': 'Transfer from',
   [toFunctionSelector('transferWithMemo(address,uint256,bytes32)')]: 'Transfer with memo' }
 
-export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disabled, disabledReason }: { entry: KeyResult; nowSeconds: number; chain: string; permanent?: boolean; onRevoke?: (key: string) => void; disabled?: boolean; disabledReason?: string }) {
+export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disabled, disabledReason, leftover }: { entry: KeyResult; nowSeconds: number; chain: string; permanent?: boolean; onRevoke?: (key: string) => void; disabled?: boolean; disabledReason?: string; leftover?: boolean }) {
   const raw = entry.raw
   const never = raw && (BigInt(raw.expiry) === 0n || BigInt(raw.expiry) > 4_000_000_000n)
   const status = raw ? keyStatus(raw, nowSeconds) : 'unavailable'
   const risk = riskLevel(raw, nowSeconds)
+  const leftoverNote = leftover && <div className="notice leftover-note"><strong>Left behind by a revoked admin key</strong><p className="subtext">This link is known from the demo’s setup, not read from the chain.</p></div>
   const rawDetails = <details className="raw"><summary>Raw chain values</summary><p className="subtext">First seen at block {entry.firstSeenBlock.toLocaleString()}. Event flags: {entry.eventFlags}.</p><pre>{JSON.stringify(raw, null, 2)}</pre></details>
-  if (raw && (status === 'expired' || status === 'revoked')) return <details className="key-card compact-key" aria-label={`Key ${entry.key}`}><summary><span className="compact-address">{shortAddress(entry.key)}</span>{' '}<span>{status === 'expired' ? <>Expired <DateValue value={raw.expiry} showRelative={false} />. Can't spend or make calls.</> : <>Revoked. Can't spend or make calls.</>}</span></summary><div className="compact-body"><code>{entry.key}</code>{status === 'revoked' && raw.wasAdmin && <p className="subtext">Former admin key.</p>}{rawDetails}</div></details>
+  if (raw && (status === 'expired' || status === 'revoked')) return <details className="key-card compact-key" aria-label={`Key ${entry.key}`}><summary><span className="compact-address">{shortAddress(entry.key)}</span>{' '}<span>{status === 'expired' ? <>Expired <DateValue value={raw.expiry} showRelative={false} />. Can't spend or make calls.</> : <>Revoked. Can't spend or make calls.</>}</span>{leftover && <span className="leftover-label">Left behind by a revoked admin key</span>}</summary><div className="compact-body">{leftoverNote}<code>{entry.key}</code>{status === 'revoked' && raw.wasAdmin && <p className="subtext">Former admin key.</p>}{rawDetails}</div></details>
   const positiveLimits = raw?.limits.filter(token => BigInt(token.remaining) > 0n) ?? []
   const zeroLimits = raw?.limits.filter(token => BigInt(token.remaining) === 0n) ?? []
   return <article className="key-card" aria-label={`Key ${entry.key}`}>
     <div className="card-heading"><Address value={entry.key} /><div className="card-badges"><span className={`badge ${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>{risk && <span className={`badge risk-${risk}`}>{risk === 'high' ? 'High risk' : 'Review'}</span>}</div></div>
-    <p className="sr-only">{entry.sentence}</p>
+    {leftoverNote}<p className="sr-only">{entry.sentence}</p>
     {!raw ? <p role="alert">We couldn't read this key's permissions. Try the lookup again.</p> : <>
       {raw.isAdmin && <p className="notice">Admin key: can create and revoke other keys.</p>}
       <dl className="permission-grid">

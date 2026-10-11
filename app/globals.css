@@ -102,3 +102,9 @@ footer { margin-top: 40px; color: #475569; font-size: .8rem; line-height: 1.7; p
 @media (max-width: 640px) { .compact-key { padding: 12px; } .compact-key > summary > span { margin-left: 4px; } .embedded-account { padding: 16px; } }
 
 .how-to-revoke pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.brand img { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.network-snapshots { margin-top: 28px; border-top: 1px solid #e2e8f0; padding-top: 16px; display: grid; gap: 16px; }
+.leftover-note { margin: 12px 0; }
+.leftover-note p { margin-top: 5px; }
+.leftover-label { color: #0f766e; font-size: 12px; }
