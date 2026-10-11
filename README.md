@@ -2,7 +2,7 @@
 
 See who can spend. Cut unwanted access.
 
-M1 API available. Account pages and the interactive demo aren't built yet.
+Look up an account on testnet or mainnet to see its keys, spending allowances, recipients, expiry and risk flags. The interactive demo isn't built yet.
 
 ## Run
 
@@ -23,6 +23,10 @@ curl 'http://localhost:3000/api/keys?chain=testnet&address=0x907B843c995E9332caf
 ```
 
 Use `chain=testnet|mainnet` and a Tempo account address. Pages contain up to 25 keys, newest first. Lookup loads the account's static shard, scans newer blocks, then reads current permissions at one captured block. Completed results are cached in server memory for 30 seconds. `coveredRanges`, `missingRanges`, `completeThroughBlock`, `discoveryComplete` and `readsComplete` expose coverage and failed reads. A partial result always has `complete: false`.
+
+Open `/testnet/<address>` or `/mainnet/<address>` for the account view. Use Next, Last or the page number to navigate large accounts. Cards use raw chain fields; expand an address or raw values for the full data. Dates use your browser's local timezone. Coverage stays visible during loading, errors and scrolling.
+
+`/api/keys` allows 30 requests per IP per minute, returning HTTP 429 with a plain message and `Retry-After`. Counters are held in one server process and reset on restart. Deploy behind Caddy on loopback so its client IP header is trusted.
 
 Spending limits are checked for known stablecoins only. [Tempo's public token lists](https://tokenlist.tempo.xyz/docs) are snapshotted in `lib/known-tokens.json`, with retrieval date and addresses. cbBTC, MACH, PRIME, wYLDS and YLDS are excluded from this fixed stablecoin subset. Other tokens aren't covered. Expired keys and revoked keys can't spend. Revocation clears permission fields, so the API doesn't present those cleared values as former permissions. Admin history comes from events; the API doesn't infer who created a child key.
 

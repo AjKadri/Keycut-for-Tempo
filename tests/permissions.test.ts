@@ -12,7 +12,7 @@ test('restricted transfer states remaining amount, recipient and expiry', () => 
   const result = describePermissions(base, 1000)
   assert.equal(result.status, 'active')
   assert.match(result.sentence, /12.5 AlphaUSD/)
-  assert.match(result.sentence, /transfer on AlphaUSD only to 0x222/)
+  assert.match(result.sentence, /Transfer on AlphaUSD only to 0x222/)
   assert.match(result.sentence, /Expires 1970-01-01T00:33:20.000Z/)
   assert.deepEqual(result.riskFlags, [])
 })
@@ -25,16 +25,16 @@ test('empty recipient list is unrestricted, rather than denied', () => {
 })
 
 test('scoped with no scopes permits no calls, empty rules permit any function', () => {
-  assert.match(describePermissions({ ...base, scopes: [] }, 1000).sentence, /no calls allowed/)
+  assert.match(describePermissions({ ...base, scopes: [] }, 1000).sentence, /No calls allowed/)
   const anyFunction = describePermissions({ ...base, scopes: [{ target: token.address, selectorRules: [] }] }, 1000)
-  assert.match(anyFunction.sentence, /any function on AlphaUSD/)
+  assert.match(anyFunction.sentence, /Any function on AlphaUSD/)
   assert.ok(anyFunction.riskFlags.includes('any function on a target'))
 })
 
 test('uncapped unrestricted key carries the three broad-access flags', () => {
   const result = describePermissions({ ...base, expiry: '0', enforceLimits: false, isScoped: false }, 1000)
-  assert.match(result.sentence, /no spending cap/)
-  assert.match(result.sentence, /can call any function and pay any recipient/)
+  assert.match(result.sentence, /No spending cap/)
+  assert.match(result.sentence, /Can call any function and pay any recipient/)
   assert.deepEqual(result.riskFlags, ['no spending cap', 'no call restrictions', 'never expires'])
 })
 
@@ -64,6 +64,14 @@ test('admin and transferFrom risks are stated without inventing lineage', () => 
 })
 
 test('zero allowances and finite periods are explicit', () => {
-  assert.match(describePermissions({ ...base, limits: [{ ...token, remaining: '0', periodEnd: '0' }] }, 1000).sentence, /no spending allowance remaining among known stablecoins/)
+  assert.match(describePermissions({ ...base, limits: [{ ...token, remaining: '0', periodEnd: '0' }] }, 1000).sentence, /No spending allowance remaining among known stablecoins/)
   assert.match(describePermissions({ ...base, limits: [{ ...token, remaining: '1000000', periodEnd: '1500' }] }, 1000).sentence, /1 AlphaUSD until 1970-01-01T00:25:00.000Z/)
+})
+
+ test('each generated sentence starts with a capital letter', () => {
+  for (const raw of [base, { ...base, expiry: '0', enforceLimits: false, isScoped: false },
+    { ...base, isAdmin: true }, { ...base, scopes: [] }]) {
+    const sentence = describePermissions(raw, 1000).sentence
+    assert.doesNotMatch(sentence, /(?:^|\. )[a-z]/)
+  }
 })

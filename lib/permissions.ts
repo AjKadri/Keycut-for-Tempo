@@ -45,5 +45,5 @@ export function describePermissions(raw: KeyPermissions, nowSeconds: number) {
   }
   words.push(neverExpires ? 'Never expires.' : `${status === 'expired' ? 'Expired' : 'Expires'} ${new Date(Number(expiry) * 1000).toISOString()}.`)
   if (neverExpires) risks.push('never expires')
-  return { status, sentence: words.join(' '), riskFlags: [...new Set(risks)] }
+  return { status, sentence: words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '), riskFlags: [...new Set(risks)] }
 }
