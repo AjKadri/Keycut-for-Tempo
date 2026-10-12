@@ -37,6 +37,10 @@ All demo accounts are seeded testnet accounts. Test AlphaUSD isn't real money.
 
 The [permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) needs no setup. Its child has a small cap and a finite one-year expiry. Its signing keys were discarded, so its revoke action opens a fresh demo. Real accounts have an exact owner-client command to copy; connected-wallet revoke isn't built.
 
+## Wallet revoke gate
+
+The testnet wallet gate on 12 Oct 2026 did not pass in the available browser. Tempo Wallet through the [Tempo Accounts SDK](https://github.com/tempoxyz/accounts) reached passkey sign-in on the hosted HTTPS origin, but no account connected. The default popup was unavailable to the browser tools, and native passkey controls were blocked by a locked Mac. A local attempt also returned a WebAuthn TLS error. No injected wallet was available. No revoke transaction was signed, so main-key versus session-key signing and `getKey.isRevoked` remain unverified. Wallet revocation remains unverified. Real accounts keep the owner-client command to copy, and mainnet wallet actions remain unavailable.
+
 ## How Tempo is used
 
 Keycut reads Moderato testnet (42431) and Tempo mainnet (4217) through `viem@2.57.4`. All writes are testnet-only.
