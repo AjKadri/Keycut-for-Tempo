@@ -24,11 +24,12 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
       form.addEventListener('submit', handler); cleanups.push(() => form.removeEventListener('submit', handler))
     }
     cleanups.push(onVisible(q('.hero'), el => reveal(el, 'h1 span,.lede,.search,.fine,.alts')))
-    container.querySelectorAll<HTMLElement>('[data-to]').forEach(el => cleanups.push(onVisible(el, node => cleanups.push(countUp(node)))))
+    const numbers = q<HTMLElement>('.numbers') ?? q<HTMLElement>('#count')
+    cleanups.push(onVisible(numbers, section => section.querySelectorAll<HTMLElement>('[data-to]').forEach(node => cleanups.push(countUp(node)))))
     cleanups.push(onVisible(q('#steps'), el => el.classList.add('on'), .5))
     cleanups.push(onVisible(q('#frag1'), () => { const typed = q('#typed'); if (typed) void type(typed, `${example.account.slice(0,12)}…${example.account.slice(-6)}`,55) }))
     cleanups.push(onVisible(q('#frag2'), el => reveal(el, '.kv span')))
-    cleanups.push(onVisible(q('#frag3'), async () => { const mini=q('#mini'); if (mini) { await wait(900); if (controller.signal.aborted) return; await cut(mini); const badge=q('#minibadge'); if (badge) { badge.className='badge';badge.textContent='Revoked' } } }))
+    cleanups.push(onVisible(q('#frag3'), async () => { const mini=q('#mini'); if (mini) { await wait(900); if (controller.signal.aborted) return; await cut(mini,{signal:controller.signal}); const badge=q('#minibadge'); if (badge) { badge.className='badge';badge.textContent='Revoked' } } }))
     cleanups.push(onVisible(q('#anat'), el => reveal(el, '.r')))
     if (page === 'learn') {
       const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('#toc a')), mark=q('#tocmark')
@@ -39,7 +40,7 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
       const handler=async(event: MouseEvent)=>{
         const button=(event.target as Element).closest<HTMLButtonElement>('.flip button')
         if(button){container.querySelectorAll('.flip button').forEach(b=>b.setAttribute('aria-pressed',String(b===button))); for(const el of container.querySelectorAll<HTMLElement>('#anat .ex')){el.classList.toggle('bad',button.dataset.k==='b');void swapText(el,el.dataset[button.dataset.k!]!)} }
-        if((event.target as Element).closest('#tgo')){const go=q<HTMLButtonElement>('#tgo')!;go.disabled=true;await cut(q('#tAdmin')!);if(controller.signal.aborted)return;q('#tAdmin')!.classList.add('dead');q('#tAdminS')!.textContent='Revoked';q('#tw2')!.classList.add('broken');q('#tChild')!.classList.add('hot');q('#tsay')!.className='say alarm';await swapText(q('#tsay')!,'Admin key revoked. The child key is still active and can still spend.');go.hidden=true;q('#treset')!.hidden=false}
+        if((event.target as Element).closest('#tgo')){const go=q<HTMLButtonElement>('#tgo')!;go.disabled=true;await cut(q('#tAdmin')!,{signal:controller.signal});if(controller.signal.aborted)return;q('#tAdmin')!.classList.add('dead');q('#tAdminS')!.textContent='Revoked';q('#tw2')!.classList.add('broken');q('#tChild')!.classList.add('hot');q('#tsay')!.className='say alarm';await swapText(q('#tsay')!,'Admin key revoked. The child key is still active and can still spend.');go.hidden=true;q('#treset')!.hidden=false}
         if((event.target as Element).closest('#treset')){q('#tAdmin')!.classList.remove('dead');q('#tAdminS')!.textContent='Active';q('#tw2')!.classList.remove('broken');q('#tChild')!.classList.remove('hot');q('#tsay')!.className='say';void swapText(q('#tsay')!,'The agent holds the admin key. It made the child key.');const go=q<HTMLButtonElement>('#tgo')!;go.hidden=false;go.disabled=false;q('#treset')!.hidden=true}
       }
       container.addEventListener('click',handler);cleanups.push(()=>container.removeEventListener('click',handler))
@@ -49,6 +50,9 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
       async function play() {
         const run=++generation, ledger=q('#ledger')!,rows=q('#rows')!,found=q('#found')!,verdict=q('#verdict')!
         ledger.classList.add('scanning')
+        found.textContent='Reading keys…'
+        verdict.innerHTML='&nbsp;'
+        rows.replaceChildren()
         try {
           const data=await fetchKeys('testnet',example.account,1,controller.signal)
           if(controller.signal.aborted||run!==generation)return
@@ -64,7 +68,7 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
             rows.append(row);cleanups.push(onVisible(row, el=>reveal(el,'.id,.state,.what')));found.textContent=`${rows.children.length} of ${data.totalKeys} found`;await wait(420);if(controller.signal.aborted||run!==generation)return
           }
           ledger.classList.remove('scanning');found.textContent=`${data.totalKeys} keys found`;await swapText(verdict,`${data.keys.filter(k=>k.status==='active').length} key can still spend from this account.`)
-          await wait(1500);if(controller.signal.aborted||run!==generation)return;const target=q('.row.target');if(target){await cut(target);await swapText(verdict,'Cut unwanted access.');const note=target.querySelector<HTMLElement>('.note');if(note)note.textContent='Cut animation only. This permanent example stays active.'}
+          await wait(1500);if(controller.signal.aborted||run!==generation)return;const target=q('.row.target');if(target){await cut(target,{signal:controller.signal});await swapText(verdict,'Cut unwanted access.');const note=target.querySelector<HTMLElement>('.note');if(note)note.textContent='Cut animation only. This permanent example stays active.'}
         } catch(error){if(!controller.signal.aborted){ledger.classList.remove('scanning');found.textContent='Lookup unavailable';verdict.textContent='Open the seeded example';if(!rows.children.length)rows.textContent=(error as Error).message}}
       }
       const replay=q('#replay')!;replay.addEventListener('click',play);cleanups.push(()=>replay.removeEventListener('click',play));void play()

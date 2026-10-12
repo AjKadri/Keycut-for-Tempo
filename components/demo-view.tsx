@@ -19,12 +19,14 @@ export function DemoView(){
   const [at,setAt]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[version,setVersion]=useState(0),[keys,setKeys]=useState<KeysResult>()
   const [caption,setCaption]=useState('Press the first step to start.'),[auto,setAuto]=useState(false),[confirm,setConfirm]=useState(false)
   const board=useRef<HTMLDivElement>(null),admin=useRef<HTMLDivElement>(null),child=useRef<HTMLDivElement>(null),shop=useRef<HTMLDivElement>(null),dialog=useRef<HTMLDialogElement>(null)
+  const cutController=useRef(new AbortController())
+  useEffect(()=>()=>cutController.current.abort(),[])
   useEffect(()=>{if(confirm)dialog.current?.showModal();else dialog.current?.close()},[confirm])
   useEffect(()=>{if(!ready)return;const controller=new AbortController();fetchKeys('testnet',ready.account,1,controller.signal).then(setKeys).catch(()=>{});return()=>controller.abort()},[ready,version])
   async function action(current:DemoReady,index:number){
     const result=await demoAction(index===5?'revoke':'pay',current.session)
     setResults(previous=>({...previous,[index]:result}))
-    if(index===5&&child.current)await cut(child.current)
+    if(index===5&&child.current)await cut(child.current,{signal:cutController.current.signal})
     if((index===4||index===6)&&board.current&&child.current&&shop.current&&result.vendorReceived!==undefined)await paymentMotion(board.current,child.current,shop.current,BigInt(result.vendorReceived)>0n)
     const next={...current,session:result.session};setReady(next);setAt(index+1);setVersion(value=>value+1);setCaption(result.explanation)
     if(index===5)toast(result.explanation)
@@ -41,7 +43,7 @@ export function DemoView(){
         if(!current)throw new Error('The demo setup did not return an account.')
         setReady(current)
         // Setup returns the four confirmed outcomes together. Replay them in order.
-        for(let i=1;i<=4;i++){setAt(i);setCaption(['','Account funded from the testnet bank.','The agent received an admin key.','The admin created the capped child key.','Admin key revoked. The child key is still active.'][i]!);if(i===4&&admin.current)await cut(admin.current);await wait(500)}
+        for(let i=1;i<=4;i++){setAt(i);setCaption(['','Account funded from the testnet bank.','The agent received an admin key.','The admin created the capped child key.','Admin key revoked. The child key is still active.'][i]!);if(i===4&&admin.current)await cut(admin.current,{signal:cutController.current.signal});await wait(500)}
         setVersion(value=>value+1);index=4
         if(!all)return
       }
@@ -53,7 +55,7 @@ export function DemoView(){
   async function confirmCut(){setConfirm(false);setBusy(true);setError('');try{const current=await action(ready!,5);if(auto)await action(current,6)}catch(error){setError((error as Error).message)}finally{setBusy(false);setAuto(false)}}
   async function revokeFromCard(key:string){
     setBusy(true)
-    try{const result=await demoAction('revoke',ready!.session,key);setReady(previous=>previous&&({...previous,session:result.session}));if(key.toLowerCase()===ready!.child.toLowerCase()){if(child.current)await cut(child.current);setResults(previous=>({...previous,5:result}));setAt(6);setCaption(result.explanation)}return result}finally{setBusy(false)}
+    try{const result=await demoAction('revoke',ready!.session,key);setReady(previous=>previous&&({...previous,session:result.session}));if(key.toLowerCase()===ready!.child.toLowerCase()){if(child.current)await cut(child.current,{signal:cutController.current.signal});setResults(previous=>({...previous,5:result}));setAt(6);setCaption(result.explanation)}return result}finally{setBusy(false)}
   }
   const childEntry=keys?.keys.find(k=>k.key.toLowerCase()===ready?.child.toLowerCase())
   const childRaw=childEntry?.raw

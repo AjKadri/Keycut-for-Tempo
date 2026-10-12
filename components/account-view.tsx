@@ -30,6 +30,8 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   const [filter, setFilter] = useState('all')
   const [pendingKey, setPendingKey] = useState<string>()
   const dialog = useRef<HTMLDialogElement>(null), tabs = useRef<HTMLDivElement>(null)
+  const cutController = useRef(new AbortController())
+  useEffect(() => () => cutController.current.abort(), [])
   const [indexedBlock, setIndexedBlock] = useState<number>()
   useEffect(() => { const controller = new AbortController(); fetch(`/index/${chain === 'mainnet' ? 4217 : 42431}/meta.json`, { signal: controller.signal }).then(r => r.json()).then(meta => setIndexedBlock(meta.completeThroughBlock)).catch(() => {}); return () => controller.abort() }, [chain])
   useEffect(() => { const place = () => { const button = tabs.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]'), indicator = tabs.current?.querySelector<HTMLElement>('.ind'); if (button && indicator) { indicator.style.width = `${button.offsetWidth}px`; indicator.style.transform = `translateX(${button.offsetLeft}px)` } }; place(); document.fonts.ready.then(place); window.addEventListener('resize',place); return () => window.removeEventListener('resize',place) }, [filter,data])
@@ -40,7 +42,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
       const result = await demo!.onRevoke(key)
       // The API has independently checked getKey. Animate only a confirmed revoke.
       const card = document.getElementById(`key-${key}`)
-      if (card) await cut(card)
+      if (card) await cut(card, { signal: cutController.current.signal })
       setAction({ result }); setAttempt(value => value + 1); toast(result.explanation)
     } catch (error) { setAction({ error: (error as Error).message }) }
   }

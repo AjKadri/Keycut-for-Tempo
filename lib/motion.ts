@@ -1,27 +1,74 @@
 // Small DOM effects shared by the seeded illustrations and the real transaction UI.
 export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 export const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, reducedMotion() ? 0 : ms))
-export async function cut(el: HTMLElement) {
-  if (reducedMotion()) return
-  // Overlays leave React's element tree intact while its two halves separate.
-  const box = el.getBoundingClientRect(), holder = document.createElement('div')
-  Object.assign(holder.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '55', pointerEvents: 'none' })
-  const left = el.cloneNode(true) as HTMLElement, right = el.cloneNode(true) as HTMLElement
-  for (const [node, polygon] of [[left, '0 0,57% 0,49% 100%,0 100%'], [right, '58% 0,100% 0,100% 100%,50% 100%']] as const) {
-    node.removeAttribute('id'); node.querySelectorAll('[id]').forEach(child => child.removeAttribute('id'))
-    node.setAttribute('aria-hidden', 'true'); node.inert = true
-    Object.assign(node.style, { position: 'absolute', inset: '0', margin: '0', width: '100%', height: '100%', animation: 'none', clipPath: `polygon(${polygon})` })
-    holder.append(node)
+type CutOptions = { signal?: AbortSignal }
+const activeCuts = new WeakMap<HTMLElement, () => void>()
+
+export function cut(el: HTMLElement, options: CutOptions = {}) {
+  if (reducedMotion() || !el.isConnected || !el.parentElement) return Promise.resolve()
+  activeCuts.get(el)?.()
+
+  const holder = document.createElement('div')
+  holder.className = 'cut-holder'
+  const computed = getComputedStyle(el)
+  holder.style.gridColumn = computed.gridColumn
+  holder.style.gridRow = computed.gridRow
+  el.before(holder)
+  holder.append(el)
+
+  const right = el.cloneNode(true) as HTMLElement
+  right.setAttribute('aria-hidden', 'true')
+  right.inert = true
+  right.removeAttribute('id')
+  right.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'))
+  right.classList.remove('found')
+  Object.assign(right.style, { position: 'absolute', inset: '0', margin: '0', animation: 'none', clipPath: 'polygon(58% 0, 100% 0, 100% 100%, 50% 100%)' })
+
+  const width = el.offsetWidth, height = el.offsetHeight
+  const angle = Math.atan2(.08 * width, height) * 180 / Math.PI
+  const blade = document.createElement('div')
+  blade.className = 'blade'
+  const y0 = -.18 * height
+  const x0 = .57 * width + .08 * width * .18
+  const length = height * 1.36 / Math.cos(angle * Math.PI / 180)
+  Object.assign(blade.style, { left: `${x0}px`, top: `${y0}px`, height: `${length}px` })
+  holder.append(right, blade)
+  el.style.clipPath = 'polygon(0 0, 57% 0, 49% 100%, 0 100%)'
+
+  let settled = false
+  let resolveDone!: () => void
+  const done = new Promise<void>(resolve => { resolveDone = resolve })
+  const animations: Animation[] = []
+  const finish = (cancel = false) => {
+    if (settled) return
+    settled = true
+    if (cancel) animations.forEach(animation => animation.cancel())
+    options.signal?.removeEventListener('abort', onAbort)
+    activeCuts.delete(el)
+    right.remove()
+    blade.remove()
+    el.style.clipPath = ''
+    if (holder.isConnected && el.parentElement === holder) holder.replaceWith(el)
+    resolveDone()
+    if (!cancel && el.isConnected) el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' })
   }
-  const blade = document.createElement('div'); blade.className = 'blade'
-  const angle = Math.atan2(.08 * box.width, box.height) * 180 / Math.PI
-  Object.assign(blade.style, { left: `${.5844 * box.width}px`, top: `${-.18 * box.height}px`, height: `${box.height * 1.36}px` })
-  holder.append(blade); document.body.append(holder)
-  const visibility = el.style.visibility; el.style.visibility = 'hidden'
-  try {
-    blade.animate([{ transform: `rotate(${angle}deg) scaleY(0)`, opacity: 1 }, { transform: `rotate(${angle}deg) scaleY(1)`, opacity: 1, offset: .7 }, { transform: `rotate(${angle}deg) scaleY(1)`, opacity: 0 }], { duration: 520, fill: 'forwards' })
-    await right.animate([{ transform: 'none', opacity: 1 }, { transform: 'translate(10px,28px) rotate(5deg)', opacity: 0 }], { duration: 700, delay: 420, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }).finished
-  } finally { holder.remove(); el.style.visibility = visibility }
+  const onAbort = () => finish(true)
+  activeCuts.set(el, onAbort)
+  if (options.signal?.aborted) { finish(true); return done }
+  options.signal?.addEventListener('abort', onAbort, { once: true })
+
+  animations.push(blade.animate([
+    { transform: `rotate(${angle}deg) scaleY(0)`, opacity: 1 },
+    { transform: `rotate(${angle}deg) scaleY(1)`, opacity: 1, offset: .7 },
+    { transform: `rotate(${angle}deg) scaleY(1)`, opacity: 0 },
+  ], { duration: 520, easing: 'cubic-bezier(.6,0,.2,1)', fill: 'forwards' }))
+  const fall = right.animate([
+    { transform: 'none', opacity: 1 },
+    { transform: 'translate(10px, 28px) rotate(5deg)', opacity: 0 },
+  ], { duration: 700, delay: 420, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' })
+  animations.push(fall)
+  fall.finished.then(() => finish(), () => finish(true))
+  return done
 }
 export async function swapText(el: HTMLElement, text: string) {
   if (reducedMotion() || el.textContent === text) { el.textContent = text; return }
@@ -32,7 +79,7 @@ export async function swapText(el: HTMLElement, text: string) {
 export function countUp(el: HTMLElement, duration = 1400) {
   const raw = el.dataset.to ?? '0', target = Number(raw), decimals = raw.split('.')[1]?.length ?? 0
   const paint = (value: number) => { el.textContent = value.toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + (el.dataset.suffix ?? '') }
-  if (reducedMotion()) { paint(target); return () => {} }
+  if (reducedMotion() || typeof requestAnimationFrame === 'undefined') { paint(target); return () => {} }
   let frame = 0; const start = performance.now()
   const tick = (now: number) => { const p = Math.min(1, (now - start) / duration); paint(target * (1 - (1 - p) ** 4)); if (p < 1) frame = requestAnimationFrame(tick) }
   frame = requestAnimationFrame(tick); return () => cancelAnimationFrame(frame)
