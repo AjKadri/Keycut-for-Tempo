@@ -1,4 +1,4 @@
-import type { Address } from 'viem'
+import { isAddress, type Address } from 'viem'
 import { walletNetworkConfig, walletTestCall, type WalletNetwork } from './wallet-test'
 
 export type AccountWalletMode = 'owner' | 'other' | 'disconnected'
@@ -25,6 +25,8 @@ export function assertWalletChain(network: WalletNetwork, walletChain: number | 
   }
 }
 
-export function accountWalletRevokeCall(keyId: Address, network: WalletNetwork) {
-  return walletTestCall('revoke', keyId, undefined, network)
+export function accountWalletRevokeCall(keyId: string, network: WalletNetwork, loadedKeys: readonly string[]) {
+  if (!isAddress(keyId, { strict: false })) throw new Error('Choose a valid access key.')
+  if (!loadedKeys.some(cardKey => cardKey.toLowerCase() === keyId.toLowerCase())) throw new Error('This key is not loaded for this account.')
+  return walletTestCall('revoke', keyId as Address, undefined, network)
 }

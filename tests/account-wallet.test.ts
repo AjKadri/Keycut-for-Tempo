@@ -11,13 +11,19 @@ const key = '0xf634DDcC82EF49eA01Af7B28fBBB41A3217e396a' as const
 
 test('account wallet can only build revokeKey with the card key and no value', () => {
   for (const network of ['testnet', 'mainnet'] as const) {
-    const call = accountWalletRevokeCall(key, network)
+    const call = accountWalletRevokeCall(key, network, [key])
     const decoded = decodeFunctionData({ abi: Abis.accountKeychain, data: call.data })
     assert.equal(call.to, Addresses.accountKeychain)
     assert.equal(call.value, '0x0')
     assert.equal(decoded.functionName, 'revokeKey')
     assert.deepEqual(decoded.args, [key])
   }
+})
+
+test('account wallet rejects malformed and unloaded card keys before building a call', () => {
+  assert.throws(() => accountWalletRevokeCall('not-an-address', 'testnet', [key]), /valid access key/)
+  assert.throws(() => accountWalletRevokeCall('0x3333333333333333333333333333333333333333', 'mainnet', [key]), /not loaded for this account/)
+  assert.doesNotThrow(() => accountWalletRevokeCall(key, 'mainnet', [key.toUpperCase(), key]))
 })
 
 test('connected wallet ownership controls the account-page action', () => {

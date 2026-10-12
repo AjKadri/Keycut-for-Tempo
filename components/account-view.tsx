@@ -77,6 +77,9 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   }
   async function walletRevoke(key: string): Promise<ActionResult> {
     if (!walletProvider.current || !walletAddress || walletAddress.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
+    const loadedKeys = data?.keys.map(entry => entry.key) ?? []
+    if (!isAddress(key, { strict: false })) throw new Error('Choose a valid access key.')
+    if (!loadedKeys.some(cardKey => cardKey.toLowerCase() === key.toLowerCase())) throw new Error('This key is not loaded for this account.')
     setWalletBusy(true); setWalletError(undefined)
     try {
       const network = accountWalletNetwork(chain)
@@ -89,7 +92,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
       const connected = accounts[0]
       if (!connected || !isAddress(connected) || connected.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
       assertWalletChain(network, walletChain, rpcChain)
-      const hash = await walletProvider.current.request({ method: 'eth_sendTransaction', params: [{ from: connected, ...accountWalletRevokeCall(key as Address, network) }] })
+      const hash = await walletProvider.current.request({ method: 'eth_sendTransaction', params: [{ from: connected, ...accountWalletRevokeCall(key, network, loadedKeys) }] })
       if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error(`Wallet returned an invalid transaction hash: ${String(hash)}`)
       const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 })
       if (receipt.status !== 'success') throw new Error(`The wallet transaction was ${receipt.status}.`)
@@ -117,7 +120,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   const spenders = data?.keys.filter(key => key.status === 'active' && key.raw && spendingAccess(key.raw) === 'allowed').length ?? 0
   const selected = data?.keys.find(entry => entry.key === pendingKey)
   return <Container className={`wrap acct ${embedded ? 'embedded-account' : ''}`}>
-    <div className="who"><span>{chain === 'mainnet' ? 'Mainnet account' : 'Testnet account'}</span><span className="addr">{address}</span><button className="icon-btn" onClick={async () => { try { await navigator.clipboard.writeText(address); toast('Address copied') } catch { toast('Couldn’t copy the address') } }}>Copy</button><a className="icon-btn" target="_blank" rel="noreferrer" href={`https://explore.${chain === 'mainnet' ? 'mainnet' : 'testnet'}.tempo.xyz/address/${address}`}>Open in explorer</a></div>
+    <div className="who"><span>{chain === 'mainnet' ? 'Mainnet account' : 'Testnet account'}</span><span className="addr">{address}</span><button className="icon-btn" onClick={async () => { try { await navigator.clipboard.writeText(address); toast('Address copied') } catch { toast('Couldn’t copy the address') } }}>Copy</button><a className="icon-btn" target="_blank" rel="noreferrer" href={`${walletNetworkConfig[chain === 'mainnet' ? 'mainnet' : 'testnet'].explorer}/address/${address}`}>Open in explorer</a></div>
     <div className="coverage" role="status" aria-live="polite">
       {data ? <p>{data.coverageSentence}</p> : <><p>{loading ? 'Coverage pending. Checking indexed history and the latest blocks.' : 'Coverage unavailable. This lookup did not return a result.'}</p>{indexedBlock !== undefined && <p>Index covers blocks 0 to {indexedBlock.toLocaleString()}. Live top-up is {loading ? 'pending' : 'unavailable'}.</p>}</>}
     </div>
