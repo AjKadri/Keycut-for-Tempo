@@ -3,7 +3,7 @@ import { keySummary } from '../lib/key-summary'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { isAddress, type Address } from 'viem'
-import { tempoModerato } from 'viem/chains'
+import { tempo, tempoModerato } from 'viem/chains'
 import { Abis, Addresses, createClient } from 'viem/tempo'
 import { fetchKeys, type KeysResult } from '../lib/keys-api'
 import { pageVerdict, sortPageKeys, spendingAccess } from '../lib/key-presentation'
@@ -12,11 +12,15 @@ import { permissionSummaries } from '../lib/permission-summary'
 import example from '../lib/leftover-example.json'
 import { cut, toast } from '../lib/motion'
 import { KeyCard } from './key-card'
-import { walletTestCall } from '../lib/wallet-test'
+import { walletNetworkConfig } from '../lib/wallet-test'
+import { accountWalletEnabled, accountWalletMode, accountWalletNetwork, accountWalletRevokeCall, assertWalletChain, type AccountWalletMode } from '../lib/account-wallet'
 
 export type DemoControls = { child: string; childCanRevoke: boolean; busy: boolean; onRevoke: (key: string) => Promise<ActionResult> }
 type WalletProvider = import('accounts').Provider.Provider
-const walletPublicClient = createClient({ chain: tempoModerato, cacheTime: 0 })
+const walletPublicClients = {
+  testnet: createClient({ chain: tempoModerato, cacheTime: 0 }),
+  mainnet: createClient({ chain: tempo, cacheTime: 0 }),
+} as const
 export function AccountView({ chain, address, page, initialData, demo, refreshVersion = 0, embedded = false }: { chain: string; address: string; page: number; initialData?: KeysResult; demo?: DemoControls; refreshVersion?: number; embedded?: boolean }) {
   const [state, setState] = useState<{ id: string; data?: KeysResult; error?: string }>({ id: initialData ? `${chain}:${address}:${page}:0:${refreshVersion}` : '', data: initialData })
   const [action, setAction] = useState<{ result?: ActionResult; error?: string; pending?: string }>({})
@@ -49,22 +53,24 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   async function connectWallet() {
     setWalletBusy(true); setWalletError(undefined)
     try {
+      const network = accountWalletNetwork(chain)
+      const config = walletNetworkConfig[network]
       if (!walletProvider.current) {
         const sdk = await import('accounts')
-        const provider = sdk.Provider.create({ adapter: sdk.tempoWallet(), chains: [tempoModerato], testnet: true, storage: sdk.Storage.memory(), persistCredentials: false })
+        const provider = sdk.Provider.create({ adapter: sdk.tempoWallet(), chains: [tempoModerato, tempo], testnet: true, storage: sdk.Storage.memory(), persistCredentials: false })
         provider.on('accountsChanged', accounts => setWalletAddress(accounts[0]))
         provider.on('chainChanged', () => setWalletAddress(undefined))
         walletProvider.current = provider
       }
-      await walletProvider.current.request({ method: 'wallet_connect', params: [{ chainId: '0xa5bf' }] })
+      await walletProvider.current.request({ method: 'wallet_connect', params: [{ chainId: config.chainHex }] })
       const [walletChain, accounts, rpcChain] = await Promise.all([
         walletProvider.current.request({ method: 'eth_chainId' }),
         walletProvider.current.request({ method: 'eth_accounts' }),
-        walletPublicClient.getChainId(),
+        walletPublicClients[network].getChainId(),
       ])
       const connected = accounts[0]
       if (!connected || !isAddress(connected)) throw new Error('The wallet has no connected account.')
-      if (Number(walletChain) !== 42431 || rpcChain !== 42431) throw new Error('The wallet must be on Tempo testnet 42431 for account-page cutting.')
+      assertWalletChain(network, walletChain, rpcChain)
       setWalletAddress(connected)
     } catch (error) { setWalletError(error instanceof Error ? error.message : String(error)) }
     finally { setWalletBusy(false) }
@@ -73,21 +79,23 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
     if (!walletProvider.current || !walletAddress || walletAddress.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
     setWalletBusy(true); setWalletError(undefined)
     try {
+      const network = accountWalletNetwork(chain)
+      const publicClient = walletPublicClients[network]
       const [walletChain, accounts, rpcChain] = await Promise.all([
         walletProvider.current.request({ method: 'eth_chainId' }),
         walletProvider.current.request({ method: 'eth_accounts' }),
-        walletPublicClient.getChainId(),
+        publicClient.getChainId(),
       ])
       const connected = accounts[0]
       if (!connected || !isAddress(connected) || connected.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
-      if (Number(walletChain) !== 42431 || rpcChain !== 42431) throw new Error('The wallet must be on Tempo testnet 42431 for account-page cutting.')
-      const hash = await walletProvider.current.request({ method: 'eth_sendTransaction', params: [{ from: connected, ...walletTestCall('revoke', key as Address, undefined, 'testnet') }] })
+      assertWalletChain(network, walletChain, rpcChain)
+      const hash = await walletProvider.current.request({ method: 'eth_sendTransaction', params: [{ from: connected, ...accountWalletRevokeCall(key as Address, network) }] })
       if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error(`Wallet returned an invalid transaction hash: ${String(hash)}`)
-      const receipt = await walletPublicClient.waitForTransactionReceipt({ hash, timeout: 90_000 })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 })
       if (receipt.status !== 'success') throw new Error(`The wallet transaction was ${receipt.status}.`)
-      const info = await walletPublicClient.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [address as Address, key as Address], blockNumber: receipt.blockNumber })
+      const info = await publicClient.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [address as Address, key as Address], blockNumber: receipt.blockNumber })
       if (!info.isRevoked) throw new Error('The transaction succeeded, but getKey did not confirm Revoked.')
-      return { session: '', hash, url: `https://explore.testnet.tempo.xyz/tx/${hash}`, explanation: 'Revoked. getKey confirms Revoked.' }
+      return { session: '', hash, url: `${walletNetworkConfig[network].explorer}/tx/${hash}`, explanation: 'Revoked. getKey confirms Revoked.' }
     } finally { setWalletBusy(false) }
   }
   async function revoke(key: string) {
@@ -102,14 +110,14 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   }
   const Container = embedded ? 'section' : 'main'
   const permanent = chain === 'testnet' && address.toLowerCase() === example.account.toLowerCase()
-  const walletEnabled = chain === 'testnet' && !demo
-  const walletMode = walletEnabled ? (walletAddress ? walletAddress.toLowerCase() === address.toLowerCase() ? 'owner' : 'other' : 'disconnected') : undefined
+  const walletEnabled = accountWalletEnabled(chain, Boolean(demo))
+  const walletMode: AccountWalletMode | undefined = accountWalletMode(chain, Boolean(demo), walletAddress, address)
   const child = demo?.child ?? (permanent ? example.child : undefined)
   const counts = { all: data?.keys.length ?? 0, active: data?.keys.filter(key => key.status === 'active').length ?? 0, revoked: data?.keys.filter(key => key.status === 'revoked').length ?? 0, expired: data?.keys.filter(key => key.status === 'expired').length ?? 0 }
   const spenders = data?.keys.filter(key => key.status === 'active' && key.raw && spendingAccess(key.raw) === 'allowed').length ?? 0
   const selected = data?.keys.find(entry => entry.key === pendingKey)
   return <Container className={`wrap acct ${embedded ? 'embedded-account' : ''}`}>
-    <div className="who"><span>{chain === 'mainnet' ? 'Mainnet account · read only' : 'Testnet account'}</span><span className="addr">{address}</span><button className="icon-btn" onClick={async () => { try { await navigator.clipboard.writeText(address); toast('Address copied') } catch { toast('Couldn’t copy the address') } }}>Copy</button><a className="icon-btn" target="_blank" rel="noreferrer" href={`https://explore.${chain === 'mainnet' ? 'mainnet' : 'testnet'}.tempo.xyz/address/${address}`}>Open in explorer</a></div>
+    <div className="who"><span>{chain === 'mainnet' ? 'Mainnet account' : 'Testnet account'}</span><span className="addr">{address}</span><button className="icon-btn" onClick={async () => { try { await navigator.clipboard.writeText(address); toast('Address copied') } catch { toast('Couldn’t copy the address') } }}>Copy</button><a className="icon-btn" target="_blank" rel="noreferrer" href={`https://explore.${chain === 'mainnet' ? 'mainnet' : 'testnet'}.tempo.xyz/address/${address}`}>Open in explorer</a></div>
     <div className="coverage" role="status" aria-live="polite">
       {data ? <p>{data.coverageSentence}</p> : <><p>{loading ? 'Coverage pending. Checking indexed history and the latest blocks.' : 'Coverage unavailable. This lookup did not return a result.'}</p>{indexedBlock !== undefined && <p>Index covers blocks 0 to {indexedBlock.toLocaleString()}. Live top-up is {loading ? 'pending' : 'unavailable'}.</p>}</>}
     </div>
@@ -117,7 +125,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
     <h1 className={`big-verdict ${data && !counts.active && data.complete ? 'safe' : ''}`} key={data?.checkedAt}>{data ? `${!data.discoveryComplete ? 'At least ' : ''}${pageVerdict(data.keys, data.permissionsAtTimestamp, data.totalPages > 1)}` : loading ? 'Checking this page’s keys' : 'Key permissions unavailable'}</h1>
     <p className="sub">{data ? `${data.totalKeys.toLocaleString()} keys found. On this page: ${counts.active} active, ${counts.revoked} revoked, ${counts.expired} expired.` : 'Looking is read-only. No wallet needed.'}</p>
     {permanent && <details className="seed-note"><summary>Seeded demo account on the test network. Not real funds.</summary><p>The admin key was revoked. This relationship is known from the demo’s setup, not inferred from key events.</p><p>Admin: <code>{example.admin}</code><br />Child: <code>{example.child}</code></p>{example.transactions.map(tx => <p key={tx.hash}><a href={tx.url} target="_blank" rel="noreferrer">{tx.label}</a></p>)}</details>}
-    {walletEnabled && <section className="state-panel wallet-connect" aria-label="Wallet revoke"><h3>Cut access with your wallet</h3><p>{walletAddress ? <>Connected wallet: <code>{walletAddress}</code></> : 'Connect the account owner’s Tempo Wallet to revoke active keys on this testnet account.'}</p>{walletMode === 'other' && <p>Only this account's owner can revoke its keys.</p>}{walletError && <p role="alert">{walletError}</p>}<button className="btn btn-line" disabled={walletBusy} onClick={connectWallet}>{walletAddress ? 'Reconnect wallet' : 'Connect wallet to revoke'}</button></section>}
+    {walletEnabled && <section className="state-panel wallet-connect" aria-label="Wallet revoke"><h3>Cut access with your wallet</h3><p>{walletAddress ? <>Connected wallet: <code>{walletAddress}</code></> : `Connect the account owner’s Tempo Wallet to revoke active keys on this ${chain} account.`}</p>{walletMode === 'other' && <p>Only this account's owner can revoke its keys.</p>}{walletError && <p role="alert">{walletError}</p>}<button className="btn btn-line" disabled={walletBusy} onClick={connectWallet}>{walletAddress ? 'Reconnect wallet' : 'Connect wallet to revoke'}</button></section>}
     {action.pending && <p role="status" className="state-panel"><span className="spin" /> Waiting for the test network to confirm Revoked</p>}
     {action.error && <p role="alert" className="state-panel">{action.error}</p>}
     {action.result && <p role="status" className="state-panel">{action.result.explanation} {action.result.url && <a href={action.result.url} target="_blank" rel="noreferrer">View revoke transaction</a>}</p>}
@@ -134,6 +142,6 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
         {data.totalPages > 0 && <nav className="pagination" aria-label="Key pages"><div className="page-links">{page > 1 && <><Link href={href(1)}>First</Link><Link href={href(page - 1)}>Previous</Link></>}{page < data.totalPages && <><Link href={href(page + 1)}>Next</Link><Link href={href(data.totalPages)}>Last</Link></>}</div><form action={`/${chain}/${address}`}><label htmlFor={embedded ? 'embedded-page' : 'page'}>Page</label><input id={embedded ? 'embedded-page' : 'page'} name="page" type="number" min="1" max={data.totalPages} defaultValue={page} key={page} required /><span>of {data.totalPages.toLocaleString()}</span><button className="icon-btn">Go</button></form></nav>}
       </>}
     </section><aside className="rail"><div className="panel"><h3>Keys on this page</h3><div className="stack" aria-hidden="true"><i className="a" style={{flexGrow: counts.active}} /><i className="r" style={{flexGrow:counts.revoked}} /><i className="e" style={{flexGrow:counts.expired}} /></div><ul className="legend"><li style={{'--c':'var(--coral)'} as React.CSSProperties}>Can spend<b>{spenders}</b></li><li style={{'--c':'var(--teal)'} as React.CSSProperties}>Active<b>{counts.active}</b></li><li style={{'--c':'var(--mint)'} as React.CSSProperties}>Revoked<b>{counts.revoked}</b></li><li style={{'--c':'#4F7E77'} as React.CSSProperties}>Expired<b>{counts.expired}</b></li></ul><p>Cutting access needs the account owner. Looking doesn't.</p></div><div className="panel light"><h3>Why is a key still here?</h3><p>Revoking an admin key doesn't revoke the keys it created. <Link href="/learn#leftover">Read how the testnet case works</Link>.</p></div></aside></div>
-    <dialog className="confirm" ref={dialog} aria-labelledby="cut-title" onCancel={() => setPendingKey(undefined)}><h3 id="cut-title">Cut this key's access?</h3><p>This revokes the key on Tempo. It can't be undone.</p><p className="mono">{pendingKey}</p><p>{selected?.raw ? keySummary(selected.raw, data?.permissionsAtTimestamp ?? Math.floor(Date.now()/1000)) : selected?.sentence}</p><div className="acts"><button className="btn btn-line" onClick={() => setPendingKey(undefined)}>Cancel</button><button className="btn btn-cut" onClick={() => pendingKey && revoke(pendingKey)}>Cut access</button></div></dialog>
+    <dialog className="confirm" ref={dialog} aria-labelledby="cut-title" onCancel={() => setPendingKey(undefined)}><h3 id="cut-title">Cut this key's access?</h3><p>This revokes the key on Tempo. It can't be undone.</p>{chain === 'mainnet' && <p>Cutting a key on mainnet costs a small network fee from your wallet.</p>}<p className="mono">{pendingKey}</p><p>{selected?.raw ? keySummary(selected.raw, data?.permissionsAtTimestamp ?? Math.floor(Date.now()/1000)) : selected?.sentence}</p><div className="acts"><button className="btn btn-line" onClick={() => setPendingKey(undefined)}>Cancel</button><button className="btn btn-cut" onClick={() => pendingKey && revoke(pendingKey)}>Cut access</button></div></dialog>
   </Container>
 }

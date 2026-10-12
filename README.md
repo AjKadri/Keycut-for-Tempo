@@ -36,11 +36,11 @@ The first four setup steps run together when you choose "Run every step". Every 
 
 ## Cut access with your own wallet
 
-Wallet revoke verified on testnet. At [the human gate account](https://keycut.ajkadri.dev/testnet/0x1713DB06803C57c4e396B2cecb190E93eD2841Ba), Tempo Wallet signed with a WebAuthn passkey to create disposable key `0xbbe0b440067025D5aa71430659DA4333543d24Bf` and then cut its access. The [authorize transaction](https://explore.testnet.tempo.xyz/tx/0x3fe4ad29a7cad615b3e3ef96b6b4d2b86c7a0b20079c61c952dda00e228d7ee4) and [revoke transaction](https://explore.testnet.tempo.xyz/tx/0xd51ea4b1978bb012c7b2b3d484230f9e088c8476cba3f33094372f5bbf3b7351) both have successful receipts, and `getKey` confirms `isRevoked=true` after the cut.
+Wallet revoke verified on testnet and mainnet. On [the human gate account](https://keycut.ajkadri.dev/testnet/0x1713DB06803C57c4e396B2cecb190E93eD2841Ba), Tempo Wallet signed with a WebAuthn passkey to create and cut disposable testnet key `0xbbe0b440067025D5aa71430659DA4333543d24Bf`. The [testnet authorize transaction](https://explore.testnet.tempo.xyz/tx/0x3fe4ad29a7cad615b3e3ef96b6b4d2b86c7a0b20079c61c952dda00e228d7ee4) and [testnet revoke transaction](https://explore.testnet.tempo.xyz/tx/0xd51ea4b1978bb012c7b2b3d484230f9e088c8476cba3f33094372f5bbf3b7351) have successful receipts. The same account created and cut mainnet key `0xf634DDcC82EF49eA01Af7B28fBBB41A3217e396a`; the [mainnet authorize transaction](https://explore.tempo.xyz/tx/0x8719c2673ff50dc2c68529459f723399f97ff358ad8a3deb1ba1611cbed2efec) and [mainnet revoke transaction](https://explore.tempo.xyz/tx/0x728de0de61c49c9ae93848d057031dbfb2e2ac2a73eb2a051aa494057f3d11c2) also have successful receipts. Direct `getKey` reads confirm `isRevoked=true` after both cuts.
 
-The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page remains a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`. Testnet account pages now let the connected owner cut access after a confirmation and an independent `getKey` check. Mainnet account pages stay read-only until the mainnet gate passes.
+The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page remains a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`. Testnet and mainnet account pages now let the connected owner cut access after a confirmation and an independent `getKey` check.
 
-Mainnet lookup is live. Mainnet cutting stays disabled until a separate human mainnet gate passes, and the app makes no other mainnet writes.
+Mainnet lookup and owner-wallet cutting are live after the separate human mainnet gate. The app makes no other mainnet writes.
 
 ## Numbers
 
@@ -56,7 +56,7 @@ Keycut discovers `KeyAuthorized`, `AdminKeyAuthorized` and `KeyRevoked` events f
 
 For each page, it reads `getKey`, `isAdminKey`, `getAllowedCalls` and active capped-key allowances. Multicall3 batches the permission reads on both chains after parity checks against direct reads. The UI builds each card from these raw fields, so the sentence, status, risk flags and expandable details stay consistent.
 
-The demo uses a pre-funded testnet bank and fresh server-generated throwaway keys. Payment outcomes come from the vendor's balance and confirmed key state. On testnet, a connected account owner can cut an active key through Tempo Wallet. Mainnet account pages remain read-only.
+The demo uses a pre-funded testnet bank and fresh server-generated throwaway keys. Payment outcomes come from the vendor's balance and confirmed key state. A connected account owner can cut an active key through Tempo Wallet on either network.
 
 ## Verify it yourself
 

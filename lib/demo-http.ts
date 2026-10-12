@@ -1,6 +1,7 @@
 import { isAddress, type Address } from 'viem'
 import { isIP } from 'node:net'
 import { openSession, type DemoSession } from './demo-session'
+import { demoChainAllowed } from './demo-network'
 
 const creations = new Map<string, { count: number; until: number }>()
 export class DemoRequestError extends Error {
@@ -13,7 +14,7 @@ export async function demoBody(request: Request, action: 'create' | 'pay' | 'rev
   if (text.length > 4096) throw new DemoRequestError('Demo request is too large.')
   let body: Record<string, unknown>
   try { body = JSON.parse(text) } catch { throw new DemoRequestError('Send a valid JSON demo request.') }
-  if (!body || typeof body !== 'object' || Array.isArray(body) || body.chainId !== 42431) throw new DemoRequestError('Demo routes only allow test network 42431.')
+  if (!body || typeof body !== 'object' || Array.isArray(body) || !demoChainAllowed(body.chainId)) throw new DemoRequestError('Demo routes only allow test network 42431.')
   const allowed = action === 'create' ? ['chainId'] : action === 'revoke' ? ['chainId', 'session', 'keyId'] : ['chainId', 'session']
   if (Object.keys(body).some(key => !allowed.includes(key))) throw new DemoRequestError('Demo routes accept only the testnet chain ID and an issued demo session. Do not send keys.')
   if (action === 'create') {

@@ -5,6 +5,7 @@ import { Abis, Account, Addresses, createClient } from 'viem/tempo'
 import { keyStatus } from './permissions'
 import { invalidateLookup } from './lookup'
 import { sealSession, type DemoSession } from './demo-session'
+import { DEMO_CHAIN_ID, demoChainAllowed } from './demo-network'
 
 export const ALPHA: Address = '0x20c0000000000000000000000000000000000001'
 export const txLink = (hash: Hex) => `https://explore.testnet.tempo.xyz/tx/${hash}`
@@ -18,7 +19,7 @@ export function bankClient() {
   return rootClient(key as Hex)
 }
 async function testnet(client: ReturnType<typeof rootClient>) {
-  if (await client.getChainId() !== 42431) throw new Error('Demo writes are allowed only on test network 42431.')
+  if (!demoChainAllowed(await client.getChainId())) throw new Error(`Demo writes are allowed only on test network ${DEMO_CHAIN_ID}.`)
 }
 const locks = new Set<string>()
 export async function withDemoLock<T>(account: string, action: () => Promise<T>) {
