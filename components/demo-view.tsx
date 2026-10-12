@@ -1,75 +1,63 @@
 'use client'
 import Link from 'next/link'
 import { formatUnits } from 'viem'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createDemo, demoAction, type DemoReady, type ActionResult } from '../lib/demo-api'
 import type { DemoEvent } from '../lib/demo'
+import { fetchKeys, type KeysResult } from '../lib/keys-api'
+import { cut, paymentMotion, toast, wait } from '../lib/motion'
 import { AccountView } from './account-view'
 import example from '../lib/leftover-example.json'
-
-const titles = ['Create the leftover key', 'Prove it can still pay', 'Revoke the child key', 'Try the payment again']
-export function DemoView() {
-  const [ready, setReady] = useState<DemoReady>()
-  const [transactions, setTransactions] = useState<Extract<DemoEvent, { type: 'transaction' }>[]>([])
-  const [results, setResults] = useState<Record<number, ActionResult>>({})
-  const [step, setStep] = useState(0), [busy, setBusy] = useState(false), [error, setError] = useState('')
-  const [version, setVersion] = useState(0)
-  async function run() {
-    setBusy(true); setError('')
-    try {
-      if (!ready) {
+const short=(value:string)=>`${value.slice(0,6)}…${value.slice(-4)}`
+const steps=[['Create a test account','A fresh account funded from the testnet bank.'],['Give an agent an admin key','The admin can create and revoke other keys.'],['The agent creates a child key','A 3 AlphaUSD cap, one vendor, a two-hour expiry.'],['Cut the admin’s access','The account revokes the admin key. Its child stays active.'],['The child key pays the vendor','It attempts 1 AlphaUSD. The vendor’s balance decides the outcome.'],['Cut the child key with Keycut','Revoke the child itself, then confirm its chain state.'],['The child key tries again','Same payment, same key. Check whether the vendor received anything.']]
+const buttons=['Create a test account','','','','Pay with the child key','Cut access','Try to pay again']
+type Transaction=Extract<DemoEvent,{type:'transaction'}>
+const txStep=(tx:Transaction)=>tx.label.includes('Bank funded')?0:tx.label==='Created the admin key'?1:tx.label.startsWith('Admin created')?2:tx.label==='Revoked the admin key'?3:0
+export function DemoView(){
+  const [ready,setReady]=useState<DemoReady>(),[transactions,setTransactions]=useState<Transaction[]>([]),[results,setResults]=useState<Record<number,ActionResult>>({})
+  const [at,setAt]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[version,setVersion]=useState(0),[keys,setKeys]=useState<KeysResult>()
+  const [caption,setCaption]=useState('Press the first step to start.'),[auto,setAuto]=useState(false),[confirm,setConfirm]=useState(false)
+  const board=useRef<HTMLDivElement>(null),admin=useRef<HTMLDivElement>(null),child=useRef<HTMLDivElement>(null),shop=useRef<HTMLDivElement>(null),dialog=useRef<HTMLDialogElement>(null)
+  useEffect(()=>{if(confirm)dialog.current?.showModal();else dialog.current?.close()},[confirm])
+  useEffect(()=>{if(!ready)return;const controller=new AbortController();fetchKeys('testnet',ready.account,1,controller.signal).then(setKeys).catch(()=>{});return()=>controller.abort()},[ready,version])
+  async function action(current:DemoReady,index:number){
+    const result=await demoAction(index===5?'revoke':'pay',current.session)
+    setResults(previous=>({...previous,[index]:result}))
+    if(index===5&&child.current)await cut(child.current)
+    if((index===4||index===6)&&board.current&&child.current&&shop.current&&result.vendorReceived!==undefined)await paymentMotion(board.current,child.current,shop.current,BigInt(result.vendorReceived)>0n)
+    const next={...current,session:result.session};setReady(next);setAt(index+1);setVersion(value=>value+1);setCaption(result.explanation)
+    if(index===5)toast(result.explanation)
+    if(index===6)toast('Demo finished. Check the vendor’s balance and the live account view.')
+    return next
+  }
+  async function run(all=false){
+    if(busy)return;setBusy(true);setError('');setAuto(all)
+    try{
+      let current=ready,index=at
+      if(!current){
         setTransactions([])
-        await createDemo(event => {
-          if (event.type === 'transaction') setTransactions(previous => [...previous, event])
-          if (event.type === 'ready') { setReady(event); setStep(1); setVersion(value => value + 1) }
-        })
-      } else {
-        const result = await demoAction(step === 2 ? 'revoke' : 'pay', ready.session)
-        setResults(previous => ({ ...previous, [step]: result }))
-        setReady({ ...ready, session: result.session }); setStep(step + 1); setVersion(value => value + 1)
+        await createDemo(event=>{if(event.type==='transaction')setTransactions(previous=>[...previous,event]);if(event.type==='ready')current=event})
+        if(!current)throw new Error('The demo setup did not return an account.')
+        setReady(current)
+        // Setup returns the four confirmed outcomes together. Replay them in order.
+        for(let i=1;i<=4;i++){setAt(i);setCaption(['','Account funded from the testnet bank.','The agent received an admin key.','The admin created the capped child key.','Admin key revoked. The child key is still active.'][i]!);if(i===4&&admin.current)await cut(admin.current);await wait(500)}
+        setVersion(value=>value+1);index=4
+        if(!all)return
       }
-    } catch (error) { setError((error as Error).message) } finally { setBusy(false) }
+      if(index===5){setConfirm(true);return}
+      current=await action(current,index)
+      if(all&&index===4)setConfirm(true)
+    }catch(error){setError((error as Error).message)}finally{setBusy(false)}
   }
-  async function revokeFromCard(key: string) {
+  async function confirmCut(){setConfirm(false);setBusy(true);setError('');try{const current=await action(ready!,5);if(auto)await action(current,6)}catch(error){setError((error as Error).message)}finally{setBusy(false);setAuto(false)}}
+  async function revokeFromCard(key:string){
     setBusy(true)
-    try {
-      const result = await demoAction('revoke', ready!.session, key)
-      setReady(previous => previous && ({ ...previous, session: result.session }))
-      if (key.toLowerCase() === ready!.child.toLowerCase()) { setResults(previous => ({ ...previous, 2: result })); setStep(3) }
-      setVersion(value => value + 1)
-      return result
-    } finally { setBusy(false) }
+    try{const result=await demoAction('revoke',ready!.session,key);setReady(previous=>previous&&({...previous,session:result.session}));if(key.toLowerCase()===ready!.child.toLowerCase()){if(child.current)await cut(child.current);setResults(previous=>({...previous,5:result}));setAt(6);setCaption(result.explanation)}return result}finally{setBusy(false)}
   }
-  const account = ready?.account
-  return <main className="demo-shell">
-    <header className="page-header"><Link href="/" className="brand">Keycut for Tempo</Link><Link href="/">Look up an account</Link></header>
-    <p className="eyebrow">Test network 42431 · Seeded demo account · Not real funds</p>
-    <h1>The agent is gone.<br />Its child key can still spend.</h1>
-    <p className="intro">Removing an admin key leaves its child keys active. See the access that remains, then cut it off.</p>
-    <p className="notice">This live demo creates throwaway testnet keys on the server and funds them from a testnet bank. No wallet or private key needed. Sessions expire after two hours.</p>
-    <p><Link className="example-link" href={`/testnet/${example.account}`} prefetch={true}>See a leftover key</Link><span className="subtext"> · Permanent seeded testnet example, no setup</span></p>
-    <div className="demo-grid">
-      <section aria-label="Four live demo steps" className="demo-steps">
-        {titles.map((title, index) => <article key={title} className={`demo-step ${step === index ? 'current' : ''}`}>
-          <p className="eyebrow">Step {index + 1} · {step > index ? 'Complete' : step === index && busy ? 'Running' : 'Pending'}</p>
-          <h2>{title}</h2>
-          {index === 0 && <><p>Give an admin a child key with a 3 test AlphaUSD cap, then revoke the admin. The child stays active.</p><ul className="transaction-list">{transactions.map(tx => <li key={tx.hash}><a href={tx.url} target="_blank" rel="noreferrer">{tx.label}</a></li>)}</ul></>}
-          {index === 1 && <p>{results[1]?.explanation ?? 'The child attempts a 1 test AlphaUSD payment to its allowed vendor. We compare the vendor’s balance before and after.'}</p>}
-          {index === 2 && <p>{results[2]?.explanation ?? 'Revoke the child itself from this seeded account. The live account view will show the change.'}</p>}
-          {index === 3 && <p>{results[3]?.explanation ?? 'Try another 1 test AlphaUSD payment. The vendor’s balance decides whether anything arrived.'}</p>}
-          {results[index]?.url && <a href={results[index].url!} target="_blank" rel="noreferrer">View transaction</a>}
-          {results[index]?.submission && <p className="subtext">{results[index].submission}</p>}
-          {results[index]?.vendorReceived !== undefined && <div className="vendor-balance"><p>Vendor balance: {formatUnits(BigInt(results[index].before!), 6)} → {formatUnits(BigInt(results[index].after!), 6)} AlphaUSD</p><details><summary>Base units</summary><p className="subtext">6 decimals. Before: {results[index].before}. After: {results[index].after}. Change: {results[index].vendorReceived}.</p></details></div>}
-          {step === index && <button disabled={busy} onClick={run}>{busy ? 'Waiting for the test network…' : index === 0 ? 'Create demo account' : index === 1 ? 'Make the child pay' : index === 2 ? 'Revoke the child key' : 'Attempt the payment'}</button>}
-        </article>)}
-        {error && <div role="alert" className="state-panel"><h2>Couldn’t confirm this step</h2><p>{error}</p><p><Link href={`/testnet/${example.account}`} prefetch={true}>See a leftover key</Link></p>{transactions.length > 0 && !ready && <p className="subtext">Setup transactions above may have completed. Reloading starts a different throwaway account.</p>}</div>}
-        {step === 4 && <p className="notice" role="status">The child paid after its admin was revoked. Revoking the child stopped its next payment, confirmed by the vendor’s unchanged balance.</p>}
-      </section>
-      <section className="demo-live" aria-label="Actual Keycut account page">
-        <h2>Live account view</h2>
-        {account ? <><p className="subtext">Admin key: <code>{ready.admin}</code><br />Child key: <code>{ready.child}</code></p><Link href={`/testnet/${account}`} target="_blank">Open this account page</Link><AccountView key={account} chain="testnet" address={account} page={1} embedded refreshVersion={version} demo={{ child: ready.child, childCanRevoke: step >= 2, busy, onRevoke: revokeFromCard }} /></> : <div className="state-panel"><h3>Your account appears here</h3><p>The actual Keycut account page loads beside these steps after setup. It reads the same index, top-up and live permissions as any lookup.</p></div>}
-      </section>
-    </div>
-    <footer>Live transactions on Tempo testnet only. Test AlphaUSD has no real value. If a transaction cannot be confirmed, the demo reports an unknown outcome.</footer>
-  </main>
+  const childEntry=keys?.keys.find(k=>k.key.toLowerCase()===ready?.child.toLowerCase())
+  const childRaw=childEntry?.raw
+  const limit=childRaw?.limits.find(token=>token.symbol==='AlphaUSD')
+  const latestPayment=results[6]??results[4]
+  const received=latestPayment?.after
+  return <main className="wrap demo-page"><section className="demo-intro"><p className="fine">Test network 42431 · Seeded demo account · Not real funds</p><h1>Watch a key outlive its admin</h1><p>This runs on Tempo testnet with test money. Confirmed transactions have explorer links. Payment outcomes come from the vendor’s balance.</p><p className="fine">The server creates throwaway keys and funds the account from a bank. Setup completes the first four steps together, then their animations replay in order. Two comparison keys are also created.</p><Link href={`/testnet/${example.account}`}>See a leftover key without setup</Link></section><section className="demo"><div><ol className="plan"><span className="prog" aria-hidden="true" style={{transform:`scaleY(${Math.min(at,6)/6})`}} />{steps.map(([title,description],index)=><li key={title} className={`${index<at?'ok':''} ${at===index?'now':''} ${at===index&&busy?'run':''} ${index===4?'alarm':''}`}><span className="n">{index+1}</span><h3>{title}</h3><p>{results[index]?.explanation??description}</p><div className="tx">{transactions.filter(tx=>txStep(tx)===index).map(tx=><div key={tx.hash}><a href={tx.url} target="_blank" rel="noreferrer">{tx.label} · {short(tx.hash)}</a></div>)}{results[index]?.url&&<a href={results[index].url!} target="_blank" rel="noreferrer">Transaction {short(results[index].hash!)}</a>}{results[index]?.submission&&<p>{results[index].submission}</p>}{results[index]?.vendorReceived!==undefined&&<><p>Vendor balance: {formatUnits(BigInt(results[index].before!),6)} → {formatUnits(BigInt(results[index].after!),6)} AlphaUSD</p><details><summary>Base units</summary><p>6 decimals. Before: {results[index].before}. After: {results[index].after}. Change: {results[index].vendorReceived}.</p></details></>}</div></li>)}</ol><div className="ctl">{at<7&&<><button className="btn btn-cut" disabled={busy} onClick={()=>run()}>{busy?<><span className="spin" />Waiting for the test network</>:buttons[at]||'Completing setup'}</button><button className="btn btn-line" disabled={busy} onClick={()=>run(true)}>Run {at?'remaining':'every'} step</button></>}{at>0&&<button className="btn btn-quiet" disabled={busy} onClick={()=>{setReady(undefined);setTransactions([]);setResults({});setAt(0);setKeys(undefined);setCaption('Press the first step to start.')}}>Start over</button>}</div>{error&&<div className="state-panel" role="alert"><h3>Couldn’t confirm this step</h3><p>{error}</p><Link href={`/testnet/${example.account}`}>See a leftover key</Link></div>}</div><div className="demo-live"><div className="stage" aria-label="What's on the account"><div className="stage-head"><span>Testnet · seeded demo</span><span className="mono">{ready?short(ready.account):'No account yet'}</span></div><div className="board" ref={board}><div className={`node ${at<1?'ghost':'pop'}`} id="nAcct"><div className="t">Your test account</div><div className="d">Funded from the testnet bank</div></div><div className={`wire ${at<2?'ghost':''}`} id="w1" /><div className={`node ${at<2?'ghost':at>=4?'dead':'pop'}`} id="nAdmin" ref={admin}><div className="t">Admin key <span className="state">{at>=4?'Revoked':'Active'}</span></div><div className="d">Held by the agent. Can create keys.</div></div><div className={`wire ${at<3?'ghost':at>=4?'broken':''}`} id="w2"><span className="lab">The child keeps its own access</span></div><div className={`node ${at<3?'ghost':at>=6?'dead':at>=4?'hot':'pop'}`} id="nChild" ref={child}><div className="t">Child key <span className="state">{at>=6?'Revoked':'Active'}</span></div><div className="d">Pays the vendor only</div>{limit&&at<6&&<div className="meter"><div className="bar"><i style={{width:`${Math.min(100,Number(limit.remaining)/3_000_000*100)}%`}} /></div><div className="tt">{formatUnits(BigInt(limit.remaining),6)} AlphaUSD remaining</div></div>}</div><div className="node col2" id="nShop" ref={shop}><div className="t">Vendor</div><div className="d mono">{ready?short(ready.vendor):'Not created yet'}</div><div className="d">{received===undefined?'Balance not yet checked':`Balance ${formatUnits(BigInt(received),6)} AlphaUSD`}</div></div></div><p className={`caption ${at>=4&&at<6?'alarm':at>=6?'good':''}`} key={caption} aria-live="polite">{caption}</p><p className="stage-foot">Test AlphaUSD has no value. Lineage is known from this demo’s setup, not read from the chain. Other comparison keys remain in the actual account below.</p></div>{ready?<><Link className="demo-account-link" href={`/testnet/${ready.account}`} target="_blank">Open this account page</Link><AccountView key={ready.account} chain="testnet" address={ready.account} page={1} embedded refreshVersion={version} demo={{child:ready.child,childCanRevoke:at>=5,busy,onRevoke:revokeFromCard}} /></>:<div className="state-panel"><h3>Your actual account page appears here</h3><p>It reads the same index, top-up and permissions as every lookup.</p></div>}</div></section><dialog ref={dialog} className="confirm" aria-labelledby="demo-cut-title" onCancel={()=>{setConfirm(false);setAuto(false)}}><h3 id="demo-cut-title">Cut this key's access?</h3><p>This revokes the key on Tempo. It can't be undone.</p><p className="mono">{ready?.child}</p><p>{childEntry?.sentence??'Current permissions are not yet available. The setup created a child with a 3 AlphaUSD cap, one vendor and a two-hour expiry.'}</p><div className="acts"><button className="btn btn-line" onClick={()=>{setConfirm(false);setAuto(false)}}>Cancel</button><button className="btn btn-cut" onClick={confirmCut}>Cut access</button></div></dialog></main>
 }
