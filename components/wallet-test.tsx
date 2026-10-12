@@ -1,0 +1,143 @@
+'use client'
+import { useRef, useState } from 'react'
+import { formatUnits, isAddress, type Address, type Hex } from 'viem'
+import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'
+import { tempoModerato } from 'viem/chains'
+import { Abis, Addresses, createClient } from 'viem/tempo'
+import { walletTestCall, walletTestSigner, WALLET_TEST_CHAIN, WALLET_TEST_FEE_TOKEN } from '../lib/wallet-test'
+
+type Provider = import('accounts').Provider.Provider
+const client = createClient({ chain: tempoModerato, cacheTime: 0 })
+const json = (value: unknown) => JSON.stringify(value, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2)
+type TestKey = { id: Address; owner: Address; expiry: string }
+type Evidence = { action: string; account: Address; key: Address; hash: Hex; receipt?: string; getKey?: unknown; signer?: string; signature?: unknown; claim?: string }
+export function WalletTest() {
+  const provider = useRef<Provider | null>(null)
+  const lock = useRef(false)
+  const [address, setAddress] = useState<Address>()
+  const [chainId, setChainId] = useState<number>()
+  const [key, setKey] = useState<TestKey>()
+  const [balance, setBalance] = useState<bigint>()
+  const [busy, setBusy] = useState('')
+  const [errors, setErrors] = useState<{ action: string; message: string; detail: string }[]>([])
+  const [evidence, setEvidence] = useState<Evidence[]>([])
+  const [confirm, setConfirm] = useState(false)
+  const [funding, setFunding] = useState('')
+  function error(action: string, value: unknown) {
+    setErrors(prior => [...prior, { action, message: value instanceof Error ? value.message : String(value),
+      detail: value instanceof Error ? value.stack ?? value.message : json(value) ?? String(value) }])
+  }
+  async function run(action: string, fn: () => Promise<void>) {
+    if (lock.current) return
+    lock.current = true; setBusy(action)
+    try { await fn() } catch (value) { error(action, value) }
+    finally { lock.current = false; setBusy('') }
+  }
+  async function checkedAccount(expected?: Address) {
+    if (!provider.current) throw new Error('Connect Tempo Wallet first.')
+    const [network, accounts, rpcChain] = await Promise.all([
+      provider.current.request({ method: 'eth_chainId' }),
+      provider.current.request({ method: 'eth_accounts' }), client.getChainId(),
+    ])
+    setChainId(Number(network))
+    const current = accounts[0]
+    if (!current || !isAddress(current)) { setAddress(undefined); throw new Error('The wallet has no connected account.') }
+    setAddress(current)
+    if (Number(network) !== WALLET_TEST_CHAIN || rpcChain !== WALLET_TEST_CHAIN) throw new Error('Only Tempo testnet 42431 is allowed. No mainnet actions are available.')
+    if (expected && current.toLowerCase() !== expected.toLowerCase()) throw new Error('The connected account changed. Reconnect the account that owns this test key.')
+    return current
+  }
+  async function readBalance(account: Address) {
+    const amount = await client.readContract({ address: WALLET_TEST_FEE_TOKEN, abi: Abis.tip20, functionName: 'balanceOf', args: [account] })
+    setBalance(amount)
+  }
+  async function connect() {
+    await run('Connect Tempo Wallet', async () => {
+      if (!provider.current) {
+        const sdk = await import('accounts')
+        const wallet = sdk.Provider.create({ adapter: sdk.tempoWallet(), chains: [tempoModerato], testnet: true,
+          storage: sdk.Storage.memory(), persistCredentials: false })
+        wallet.on('accountsChanged', accounts => { setAddress(accounts[0]); setBalance(undefined); setConfirm(false) })
+        wallet.on('chainChanged', chain => { setChainId(Number(chain)); setBalance(undefined); setConfirm(false) })
+        provider.current = wallet
+      }
+      await provider.current.request({ method: 'wallet_connect', params: [{ chainId: '0xa5bf' }] })
+      const account = await checkedAccount()
+      await readBalance(account)
+    })
+  }
+  async function transact(action: 'authorize' | 'revoke', test: TestKey) {
+    const account = await checkedAccount(test.owner)
+    const hash = await provider.current!.request({ method: 'eth_sendTransaction', params: [{ from: account,
+      ...walletTestCall(action, test.id, BigInt(test.expiry)),
+    }] })
+    if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error(`Wallet returned an invalid transaction hash: ${String(hash)}`)
+    const item: Evidence = { action: action === 'authorize' ? 'Create a test key' : 'Cut access', account, key: test.id, hash }
+    setEvidence(prior => [...prior, item])
+    const update = (fields: Partial<Evidence>) => setEvidence(prior => prior.map(entry => entry.hash === hash ? { ...entry, ...fields } : entry))
+    let receipt: Awaited<ReturnType<typeof client.waitForTransactionReceipt>> | undefined
+    try {
+      receipt = await client.waitForTransactionReceipt({ hash, timeout: 90_000 })
+      update({ receipt: receipt.status })
+    } catch (value) { error(`${item.action}: receipt`, value); update({ receipt: 'Unconfirmed' }) }
+    // These reads are independent: an unavailable signature must not hide getKey.
+    try {
+      const info = await client.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain,
+        functionName: 'getKey', args: [account, test.id], blockNumber: receipt?.blockNumber })
+      const passed = receipt?.status === 'success' && (action === 'revoke' ? info.isRevoked
+        : info.keyId.toLowerCase() === test.id.toLowerCase() && !info.isRevoked && info.expiry === BigInt(test.expiry) && !info.enforceLimits)
+      update({ getKey: info, claim: `${!receipt ? 'Unverified receipt:' : passed ? 'PASS' : 'FAIL'} ${action === 'revoke' ? 'getKey confirms Revoked' : 'getKey confirms the one-hour uncapped test key'}.` })
+    } catch (value) { error(`${item.action}: getKey`, value); update({ claim: 'Unverified: getKey could not be read.' }) }
+    try {
+      const transaction = await client.request({ method: 'eth_getTransactionByHash', params: [hash] })
+      const signature = transaction && 'signature' in transaction ? transaction.signature : undefined
+      update({ signer: walletTestSigner(signature), signature })
+    } catch (value) { error(`${item.action}: signature read`, value); update({ signer: 'Unverified: transaction signature could not be read.' }) }
+    try { await readBalance(account) } catch (value) { error('Fee balance read', value) }
+  }
+  async function create() {
+    await run('Create a test key', async () => {
+      const owner = await checkedAccount(key?.owner ?? address)
+      const head = await client.getBlock({ blockTag: 'latest' })
+      // Retain only the public ID. The disposable signing secret is discarded.
+      const test = key ?? { id: privateKeyToAddress(generatePrivateKey()), owner, expiry: String(head.timestamp + 3600n) }
+      setKey(test)
+      await transact('authorize', test)
+    })
+  }
+  async function cut() {
+    setConfirm(false)
+    await run('Cut access', async () => {
+      if (!key) throw new Error('Create the disposable test key first.')
+      await transact('revoke', key)
+    })
+  }
+  async function fund() {
+    await run('Get test funds', async () => {
+      const account = await checkedAccount(address)
+      await client.faucet.fundSync({ account, timeout: 60_000 })
+      setFunding(`Faucet completed for ${account}. Test funds only.`)
+      await readBalance(account)
+    })
+  }
+  const owner = Boolean(address && key && address.toLowerCase() === key.owner.toLowerCase())
+  const created = evidence.some(item => item.action === 'Create a test key' && item.claim?.startsWith('PASS'))
+  const enabled = !busy && chainId === WALLET_TEST_CHAIN
+  return <main className="account-shell wallet-test">
+    <p className="eyebrow">Test network only · Moderato 42431 · Not real funds</p>
+    <h1>Run the wallet revoke gate</h1>
+    <p>This unlinked test page creates one disposable, uncapped access key that expires in one hour, then lets its owner cut access. Its private key is discarded. No payments or mainnet actions are available.</p>
+    <p>Use an unlocked browser with your Tempo Wallet passkey. Keep this tab open until the test finishes. Reloading loses the test key ID from this page; any authorized key still expires after one hour.</p>
+    <button disabled={Boolean(busy)} onClick={connect}>Connect Tempo Wallet</button>
+    <p>Connected address: <code>{address ?? 'Not connected'}</code></p>
+    <p>Wallet network: {chainId ?? 'Not connected'}. This page requests no session-key authorization.</p>
+    {address && <><p>Fee balance: {balance === undefined ? 'Not read' : `${formatUnits(balance, 6)} AlphaUSD`}. This test requests AlphaUSD for fees.</p>{balance === 0n && <button disabled={!enabled} onClick={fund}>Get test funds</button>}</>}
+    {funding && <p role="status">{funding}</p>}
+    <div className="wallet-test-actions"><button disabled={!enabled || !address || created || Boolean(key && !owner)} onClick={create}>Create a test key</button>{' '}<button disabled={!enabled || !owner} onClick={() => setConfirm(true)}>Cut access</button></div>
+    {key && <div className="notice"><p>Disposable key: <code>{key.id}</code></p><p>Owner: <code>{key.owner}</code></p><p>Requested expiry: {new Date(Number(key.expiry) * 1000).toLocaleString()} (one hour after the captured testnet block).</p><p>No cap. Can call anything. Signing secret discarded.</p>{!owner && <p>Only this account's owner can revoke its keys.</p>}</div>}
+    {confirm && key && <section className="notice" aria-label="Confirm cutting access"><h2>Cut this key's access? This revokes the key on Tempo. It can't be undone.</h2><p>Key: <code>{key.id}</code>. Requested permissions: no cap, any call, one-hour expiry. Check the getKey result below for its current state.</p><button disabled={!enabled || !owner} onClick={cut}>Cut access</button>{' '}<button onClick={() => setConfirm(false)}>Cancel</button></section>}
+    {busy && <p role="status">{busy}: waiting for the wallet or testnet…</p>}
+    {evidence.map((item, index) => <section className="key-card" key={`${item.hash}:${index}`}><h2>{item.action}</h2><p><a href={`https://explore.testnet.tempo.xyz/tx/${item.hash}`} target="_blank" rel="noreferrer">View transaction on Tempo testnet</a></p><p>Receipt: {item.receipt ?? 'Pending'}</p><p>{item.claim ?? 'Waiting for getKey confirmation.'}</p><p>Wallet signed with: {item.signer ?? 'Not yet read from the transaction.'}</p><h3>getKey result</h3><pre>{item.getKey ? json(item.getKey) : 'Not available yet'}</pre><details><summary>Transaction signature envelope</summary><pre>{json(item.signature) ?? 'Not available'}</pre><p>A keychain envelope proves access-key signing. It does not prove that the key was created by this SDK session.</p></details></section>)}
+    {errors.length > 0 && <section role="alert"><h2>Errors, verbatim</h2>{errors.map((item, index) => <div className="notice" key={index}><p>{item.action}</p><pre>{item.message}</pre><details><summary>Full error detail</summary><pre>{item.detail}</pre></details></div>)}</section>}
+  </main>
+}

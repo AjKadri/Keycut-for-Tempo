@@ -117,3 +117,7 @@ footer { margin-top: 40px; color: #475569; font-size: .8rem; line-height: 1.7; p
 .scope-values code { display: block; overflow-wrap: anywhere; }
 .vendor-balance details { font-size: .8rem; color: #475569; }
 .vendor-balance summary { cursor: pointer; }
+
+.wallet-test pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wallet-test code { overflow-wrap: anywhere; }
+.wallet-test-actions { margin: 24px 0; }

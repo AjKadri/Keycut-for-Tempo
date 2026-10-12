@@ -74,3 +74,9 @@ The parity script checks Multicall3 bytecode and compares all four permission re
 The product verifier prints the known testnet keys and coverage, then creates one fresh faucet-funded testnet account for the leftover-key case. It checks a successful control, confirmed admin/child revocations and vendor balance changes. It exits nonzero on a failed claim. It makes no mainnet writes and runs no hosted-indexer probe.
 
 Original research scripts remain in `scripts/gates/`. `npm run keywatch` runs the original gate with benchmarks and probes. `npm run index` runs the original network probe and may take several minutes. Neither is needed to view the hosted product.
+
+## Human wallet gate
+
+Open `/wallet-test` directly. It is testnet-only, excluded from search indexing and absent from site navigation. Use an unlocked passkey-capable browser with Tempo Wallet. Connect, get faucet funds if the AlphaUSD fee balance is zero, create the disposable one-hour key, then choose Cut access and approve the confirmation. Keep the tab open. The page retains only the public key ID and discards its private key. It requests no session-key authorization when connecting.
+
+Each submitted transaction shows its explorer link, receipt, independent `getKey` result and signing evidence from the transaction signature envelope. A keychain envelope means an access key signed; its temporary session provenance remains unknown. Missing or unknown evidence stays unverified. Errors are displayed verbatim. Only `authorizeKey` for the disposable key and `revokeKey` for that same key can be requested by this page, on chain 42431. Faucet requests target only the connected account. Other pages keep the copy-command fallback, and mainnet wallet actions remain unavailable.
