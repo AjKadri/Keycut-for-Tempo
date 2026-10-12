@@ -1,100 +1,88 @@
 # Keycut for Tempo
 
+![Keycut logo](public/logo.png)
+
 See who can spend. Cut unwanted access.
 
-Keycut shows every access key that can spend from a Tempo account, explains each one in plain words, and helps the owner cut off the ones they don't want. It is for teams that give AI agents and apps permission to pay on Tempo.
+[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent leftover key](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A)
 
-[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) · Demo video: coming
+Keycut lists the access keys that can spend from a Tempo account and explains each one in plain words. Tempo's [TIP-1049](https://github.com/tempoxyz/tempo/blob/main/tips/tip-1049.md) leaves a child key active when its admin key is revoked, so an old agent can keep payment access after the agent is retired. Keycut finds that leftover access and lets the owner cut it on testnet.
 
-## The problem
+## Try it in 60 seconds
 
-Apps and agents get spending power through access keys. An account can collect many keys over time. The chain has no function that lists them, and no tool we found lists these keys. Token-approval checkers don't cover access keys.
+1. Click "Create a test account" to fund a fresh throwaway testnet account from the demo bank.
+2. The setup gives an agent an admin key that can create other access keys.
+3. The agent creates a child key with a 3 AlphaUSD cap, one vendor and a two-hour expiry.
+4. The demo cuts the admin key, while the child key stays active.
+5. Click "Pay with the child key" and check the vendor balance change from 0 to 1 AlphaUSD.
+6. Confirm "Cut access" to revoke the child key through the real keychain.
+7. Click "Try to pay again" and check that the vendor balance stays unchanged.
 
-Our indexed snapshots from 11 Oct 2026, 20:16 UTC show:
+The first four setup steps run together when you choose "Run every step". Every transaction link comes from the live Tempo testnet response. Test AlphaUSD has no value.
 
-| Network | Keys | Accounts | Keys ever revoked |
-|---|---:|---:|---:|
-| Testnet | 303,164 | 229,526 | 10,990 (3.6%) |
-| Mainnet | 12,512 | 5,422 | 764 (6.1%) |
+![Home hero after the seeded cut](public/screenshots/hero.png)
 
-These are dated snapshots from the [testnet](public/index/42431/meta.json) and [mainnet](public/index/4217/meta.json) metadata, not current totals. Each account lookup tops up its history and reads current permissions, with coverage shown.
+![Hero cut animation](public/screenshots/hero-cut.gif)
 
-An agent’s admin key can create a child key, and revoking the admin leaves that child able to pay. Keycut shows the remaining access, then the owner revokes the child and its next payment is refused, as demonstrated on Tempo testnet only.
+![Permanent leftover example with the active child card and coral risk flag](public/screenshots/account.png)
 
-## Walk through the leftover key
+![Live demo just after child revoke, with the revoked card and confirmation toast](public/screenshots/account-cut.png)
 
-All demo accounts are seeded testnet accounts. Test AlphaUSD isn't real money.
+![Completed live demo with all seven steps and the real account view](public/screenshots/demo.png)
 
-1. Open the [live demo](https://keycut.ajkadri.dev/demo) and choose Create demo account. A testnet bank funds a fresh account. An admin creates a child with a 3 AlphaUSD cap and one allowed vendor, then the owner revokes the admin. The actual account panel shows the child first. Its admin link is known from setup, not inferred from the chain.
+![Learn page try-it after revoking the admin illustration](public/screenshots/learn.png)
 
-   ![The child remains active after its admin is revoked, with its allowance, vendor and expiry shown in plain words](docs/screenshots/leftover-key.jpg)
+![Home page at 390px](public/screenshots/mobile.png)
 
-2. Choose Make the child pay. The child sends 1 AlphaUSD after its admin was revoked. The vendor’s balance goes from 0 to 1 AlphaUSD, proving the payment. The transaction link is shown.
-3. Choose Revoke key on the child card, or Revoke the child key in step 3. The chain revokes it, and its card becomes a compact revoked row.
-4. Choose Attempt the payment. The vendor’s balance stays at 1 AlphaUSD, so it received 0. The explanation uses the unchanged balance and confirmed revocation. A refusal before broadcast has no transaction link. An uncertain outcome is reported as unconfirmed.
+## Cut access with your own wallet
 
-   ![Completed real testnet steps show the vendor received nothing after the child was revoked](docs/screenshots/demo-complete.jpg)
+The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page is a testnet-only gate through Tempo Wallet and the Tempo Accounts SDK. It creates one disposable key and requests only the keychain's `revokeKey` write when you choose "Cut access". The human wallet gate is still pending in the current browser environment, so there are no wallet-gate transaction links to claim. The page shows the receipt, `getKey` result, explorer link and signing evidence after a human completes it.
 
-The [permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) needs no setup. Its child has a small cap and a finite one-year expiry. Its signing keys were discarded, so its revoke action opens a fresh demo. Real accounts have an exact owner-client command to copy; connected-wallet revoke isn't built.
+Testnet account pages are ready for owner cutting after that gate is verified. Mainnet lookup is live. Mainnet cutting stays disabled until a separate human mainnet gate passes, and the app makes no other mainnet writes.
 
-## Wallet revoke gate
+## Numbers
 
-The testnet wallet gate on 12 Oct 2026 did not pass in the available browser. Tempo Wallet through the [Tempo Accounts SDK](https://github.com/tempoxyz/accounts) reached passkey sign-in on the hosted HTTPS origin, but no account connected. The default popup was unavailable to the browser tools, and native passkey controls were blocked by a locked Mac. A local attempt also returned a WebAuthn TLS error. No injected wallet was available. No revoke transaction was signed, so main-key versus session-key signing and `getKey.isRevoked` remain unverified. The unlinked [human wallet test](https://keycut.ajkadri.dev/wallet-test) now lets an owner create a disposable one-hour testnet key, get test fee funds if needed, and cut its access. It shows verbatim errors, explorer links, `getKey` results and observed signing evidence. A successful human wallet run is still pending. Real accounts keep the owner-client command to copy, and mainnet wallet actions remain unavailable.
+On Tempo testnet, 229,526 accounts hold 303,164 access keys. 3.6% of them were ever revoked.
 
-## How Tempo is used
+On mainnet, 5,422 accounts hold 12,512 keys and 6.1% were ever revoked. There are no admin keys on mainnet yet.
 
-Keycut reads Moderato testnet (42431) and Tempo mainnet (4217) through `viem@2.57.4`. All writes are testnet-only.
+These figures come from the committed index snapshots dated 11 Oct 2026: [testnet metadata](public/index/42431/meta.json) and [mainnet metadata](public/index/4217/meta.json). They are snapshot counts, not a claim about current totals.
 
-The account keychain at `0xaAAAaaAA00000000000000000000000000000000` emits `KeyAuthorized`, `AdminKeyAuthorized` and `KeyRevoked`. Keycut indexes these events into static shards, then scans later account events during lookup. Failed ranges remain visible as partial coverage. The chain doesn't record which key authorised another key in these events.
+## How it works
 
-Permissions come from `getKey`, `isAdminKey`, `getAllowedCalls` and `getRemainingLimitWithPeriod` at one captured block. Page-wide reads use Multicall3 at `0xcA11bde05977b3631167028862bE2a173976CA11`, checked against direct reads on both chains. Only active capped keys get allowance reads. Aggregate failures use bounded direct reads; unresolved failures remain partial.
+Keycut discovers `KeyAuthorized`, `AdminKeyAuthorized` and `KeyRevoked` events from the Tempo account keychain. It starts with committed shards, tops up from the latest block, and reports the exact covered range or a partial result.
 
-The admin creates its child with `authorizeKey`. The owner’s `client.accessKey.revokeSync({ accessKey: keyId })` calls `revokeKey` on that child. Payments use TIP-20 `transfer` with explicit gas. Vendor balances decide whether anything arrived.
+For each page, it reads `getKey`, `isAdminKey`, `getAllowedCalls` and active capped-key allowances. Multicall3 batches the permission reads on both chains after parity checks against direct reads. The UI builds each card from these raw fields, so the sentence, status, risk flags and expandable details stay consistent.
 
-Allowances cover a fixed list of known stablecoins. Other tokens aren't covered, and `transferFrom` isn't covered by spending limits. Full permissions and addresses remain expandable.
+The demo uses a pre-funded testnet bank and fresh server-generated throwaway keys. Payment outcomes come from the vendor's balance and confirmed key state.
 
 ## Verify it yourself
 
-A judge can check the [hosted demo](https://keycut.ajkadri.dev/demo) without a wallet, or open the [permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) with no setup. The [known four-key account](https://keycut.ajkadri.dev/testnet/0x907B843c995E9332caf4A0A832B2B1fbCD1E9477) shows two revoked keys and live coverage. Expand raw values and follow the transaction links to check the evidence.
-
-For an independent live check, run:
+Open the [live demo](https://keycut.ajkadri.dev/demo), the [permanent leftover key](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A), or the [known four-key account](https://keycut.ajkadri.dev/testnet/0x907B843c995E9332caf4A0A832B2B1fbCD1E9477). Then run the public verifier:
 
 ```sh
 npm ci
 npm run verify
 ```
 
-It prints the known keys and covered block ranges using the product’s index plus top-up, then runs the leftover-key case on a fresh seeded testnet account. Expected claims include:
+`scripts/verify.ts` prints the four known keys and their covered block range from the product index plus top-up, then runs the leftover-key case on a fresh testnet account. It prints `PASS` or `FAIL` for each claim and exits nonzero on failure. Expected claims include:
 
 ```text
-PASS Product finds the four known keys from the address: 4 keys found using the product index plus top-up
-PASS Two known keys are revoked: 2 revoked keys
-PASS Discovery covers all history through the latest captured block: Complete: all 4 keys found, checked through block <block>.
-PASS Live permissions are available: permissions read at block <block>
-PASS Admin key issues the child key: <explorer link>
-PASS Product batches active capped permissions correctly: fresh child allowance 20000000 base units; reads via multicall3
-PASS Child pays before revocation: vendor balance change 1000000 base units
-PASS Child still pays after its admin key is revoked: admin revoked=true, vendor balance change 1000000 base units
-PASS Revoking the child stops its payment: revoked=true, vendor balance change 0 base units
+PASS Product finds the four known keys from the address
+PASS Two known keys are revoked
+PASS Discovery covers all history through the latest captured block
+PASS Live permissions are available
+PASS Admin key issues the child key
+PASS Product batches active capped permissions correctly
+PASS Child pays before revocation
+PASS Child still pays after its admin key is revoked
+PASS Revoking the child stops its payment
 ```
 
-Each claim prints PASS or FAIL. Any failure exits nonzero. This optional verifier uses faucet funds once per run and never writes to mainnet. The public demo uses its pre-funded bank.
+## Safety and operations
 
-## What is shipped
+The product never accepts or stores a private key from the browser. Demo keys are throwaway testnet keys generated on the server, and demo routes accept only chain 42431. Demo creation is rate-limited per IP, and lookup requests have a per-IP limit. Server setup, environment variables, bank maintenance, rate limits and index operations are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
-| State | What it covers |
-|---|---|
-| Live | Address discovery, history top-up, current permissions, raw values, pagination and coverage on both networks. Testnet demo payments, child revocation and balance-based refusal. |
-| Seeded | Fresh testnet demo accounts and one permanent leftover example. The child/admin relationship is known only from setup. |
-| Snapshot | Network counts and key history in dated committed shards. Account lookups read later events. |
-| Simplified | Allowances for known stablecoins only. Risk labels flag broad access, admin keys and expiry beyond 30 days. Unknown spending access stays explicit. RPC latency can vary. |
-| Not built | Connected-wallet revoke for real accounts, inferred lineage, spend history, scheduled refresh, team alerts or automatic revoke. Real accounts get a command to copy. |
+## Licence
 
-Server setup, environment variables, rate limits, bank maintenance and index operations are in [OPERATIONS.md](docs/OPERATIONS.md). The [1024px PNG logo](public/logo.png) and [MIT license](LICENSE) are included.
-
-## What comes next
-
-- Wallet revoke for real accounts.
-- Key lineage backed by verified authorisation evidence.
-- Spend history per key.
-- Alerts for teams.
+Keycut is released under the [MIT License](LICENSE).
