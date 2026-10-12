@@ -1,6 +1,6 @@
-# Keycut for Tempo
-
 ![Keycut logo](public/logo.png)
+
+# Keycut for Tempo
 
 See who can spend. Cut unwanted access.
 
