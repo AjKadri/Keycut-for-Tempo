@@ -51,7 +51,7 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
         const run=++generation, ledger=q('#ledger')!,rows=q('#rows')!,found=q('#found')!,verdict=q('#verdict')!
         ledger.classList.add('scanning')
         found.textContent='Reading keys…'
-        verdict.innerHTML='&nbsp;'
+        verdict.textContent='\u00a0'
         rows.replaceChildren()
         try {
           const data=await fetchKeys('testnet',example.account,1,controller.signal)
@@ -67,9 +67,11 @@ export function DesignPage({ html, page }: { html: string; page: 'home' | 'learn
             if(entry.key.toLowerCase()===example.child.toLowerCase()){row.classList.add('target');const note=document.createElement('span');note.className='note';note.textContent='Left behind by a revoked admin key. Known from this seeded setup.';row.append(note)}
             rows.append(row);cleanups.push(onVisible(row, el=>reveal(el,'.id,.state,.what')));found.textContent=`${rows.children.length} of ${data.totalKeys} found`;await wait(420);if(controller.signal.aborted||run!==generation)return
           }
-          ledger.classList.remove('scanning');found.textContent=`${data.totalKeys} keys found`;await swapText(verdict,`${data.keys.filter(k=>k.status==='active').length} key can still spend from this account.`)
-          await wait(1500);if(controller.signal.aborted||run!==generation)return;const target=q('.row.target');if(target){await cut(target,{signal:controller.signal});await swapText(verdict,'Cut unwanted access.');const note=target.querySelector<HTMLElement>('.note');if(note)note.textContent='Cut animation only. This permanent example stays active.'}
-        } catch(error){if(!controller.signal.aborted){ledger.classList.remove('scanning');found.textContent='Lookup unavailable';verdict.textContent='Open the seeded example';if(!rows.children.length)rows.textContent=(error as Error).message}}
+          ledger.classList.remove('scanning');found.textContent=`${data.totalKeys} keys found`
+          const activeCount=data.keys.filter(k=>k.status==='active').length
+          await swapText(verdict,`${activeCount} key${activeCount===1?'':'s'} can still spend from this account.`)
+          await wait(1500);if(controller.signal.aborted||run!==generation)return;const target=q('.row.target');if(target){await cut(target,{signal:controller.signal});await swapText(verdict,'No key can spend from this account.');const note=target.querySelector<HTMLElement>('.note');if(note)note.textContent='Cut animation only. This permanent example stays active.'}
+        } catch(error){if(!controller.signal.aborted){ledger.classList.remove('scanning');found.textContent='Lookup unavailable';verdict.textContent='\u00a0';if(!rows.children.length)rows.textContent=(error as Error).message}}
       }
       const replay=q('#replay')!;replay.addEventListener('click',play);cleanups.push(()=>replay.removeEventListener('click',play));void play()
     }

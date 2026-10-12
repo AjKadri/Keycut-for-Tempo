@@ -168,7 +168,7 @@ dialog.confirm .acts { display: flex; gap: 10px; justify-content: flex-end; marg
 
 
 /* Home page only */
-.hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding-top: 56px; padding-bottom: 84px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 56px; align-items: center; padding-top: 56px; padding-bottom: 84px; }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } }
 .lede { font-size: 20px; line-height: 1.5; color: var(--muted); max-width: 33ch; margin: 0 0 32px; }
 .alts { display: flex; gap: 22px; margin-top: 26px; font-weight: 600; flex-wrap: wrap; }
