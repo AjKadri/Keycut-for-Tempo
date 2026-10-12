@@ -4,7 +4,7 @@ See who can spend. Cut unwanted access.
 
 Keycut shows every access key that can spend from a Tempo account, explains each one in plain words, and helps the owner cut off the ones they don't want. It is for teams that give AI agents and apps permission to pay on Tempo.
 
-[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) · [Demo video](https://keycut.ajkadri.dev/videos/keycut-live-walkthrough.mp4)
+[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) · Demo video: coming
 
 ## The problem
 
@@ -27,13 +27,13 @@ All demo accounts are seeded testnet accounts. Test AlphaUSD isn't real money.
 
 1. Open the [live demo](https://keycut.ajkadri.dev/demo) and choose Create demo account. A testnet bank funds a fresh account. An admin creates a child with a 3 AlphaUSD cap and one allowed vendor, then the owner revokes the admin. The actual account panel shows the child first. Its admin link is known from setup, not inferred from the chain.
 
-   ![The child remains active after its admin is revoked, with its allowance, vendor and expiry shown in plain words](public/screenshots/leftover-key.jpg)
+   ![The child remains active after its admin is revoked, with its allowance, vendor and expiry shown in plain words](docs/screenshots/leftover-key.jpg)
 
 2. Choose Make the child pay. The child sends 1 AlphaUSD after its admin was revoked. The vendor’s balance goes from 0 to 1 AlphaUSD, proving the payment. The transaction link is shown.
 3. Choose Revoke key on the child card, or Revoke the child key in step 3. The chain revokes it, and its card becomes a compact revoked row.
 4. Choose Attempt the payment. The vendor’s balance stays at 1 AlphaUSD, so it received 0. The explanation uses the unchanged balance and confirmed revocation. A refusal before broadcast has no transaction link. An uncertain outcome is reported as unconfirmed.
 
-   ![Completed real testnet steps show the vendor received nothing after the child was revoked](public/screenshots/demo-complete.jpg)
+   ![Completed real testnet steps show the vendor received nothing after the child was revoked](docs/screenshots/demo-complete.jpg)
 
 The [permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) needs no setup. Its child has a small cap and a finite one-year expiry. Its signing keys were discarded, so its revoke action opens a fresh demo. Real accounts have an exact owner-client command to copy; connected-wallet revoke isn't built.
 
