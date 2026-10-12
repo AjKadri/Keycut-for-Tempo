@@ -2,6 +2,9 @@
 import { keySummary } from '../lib/key-summary'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { isAddress, type Address } from 'viem'
+import { tempoModerato } from 'viem/chains'
+import { Abis, Addresses, createClient } from 'viem/tempo'
 import { fetchKeys, type KeysResult } from '../lib/keys-api'
 import { pageVerdict, sortPageKeys, spendingAccess } from '../lib/key-presentation'
 import type { ActionResult } from '../lib/demo-api'
@@ -9,8 +12,11 @@ import { permissionSummaries } from '../lib/permission-summary'
 import example from '../lib/leftover-example.json'
 import { cut, toast } from '../lib/motion'
 import { KeyCard } from './key-card'
+import { walletTestCall } from '../lib/wallet-test'
 
 export type DemoControls = { child: string; childCanRevoke: boolean; busy: boolean; onRevoke: (key: string) => Promise<ActionResult> }
+type WalletProvider = import('accounts').Provider.Provider
+const walletPublicClient = createClient({ chain: tempoModerato, cacheTime: 0 })
 export function AccountView({ chain, address, page, initialData, demo, refreshVersion = 0, embedded = false }: { chain: string; address: string; page: number; initialData?: KeysResult; demo?: DemoControls; refreshVersion?: number; embedded?: boolean }) {
   const [state, setState] = useState<{ id: string; data?: KeysResult; error?: string }>({ id: initialData ? `${chain}:${address}:${page}:0:${refreshVersion}` : '', data: initialData })
   const [action, setAction] = useState<{ result?: ActionResult; error?: string; pending?: string }>({})
@@ -32,14 +38,62 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   const dialog = useRef<HTMLDialogElement>(null), tabs = useRef<HTMLDivElement>(null)
   const cutController = useRef(new AbortController())
   useEffect(() => () => cutController.current.abort(), [])
+  const walletProvider = useRef<WalletProvider | null>(null)
+  const [walletAddress, setWalletAddress] = useState<Address>()
+  const [walletBusy, setWalletBusy] = useState(false)
+  const [walletError, setWalletError] = useState<string>()
   const [indexedBlock, setIndexedBlock] = useState<number>()
   useEffect(() => { const controller = new AbortController(); fetch(`/index/${chain === 'mainnet' ? 4217 : 42431}/meta.json`, { signal: controller.signal }).then(r => r.json()).then(meta => setIndexedBlock(meta.completeThroughBlock)).catch(() => {}); return () => controller.abort() }, [chain])
   useEffect(() => { const place = () => { const button = tabs.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]'), indicator = tabs.current?.querySelector<HTMLElement>('.ind'); if (button && indicator) { indicator.style.width = `${button.offsetWidth}px`; indicator.style.transform = `translateX(${button.offsetLeft}px)` } }; place(); document.fonts.ready.then(place); window.addEventListener('resize',place); return () => window.removeEventListener('resize',place) }, [filter,data])
   useEffect(() => { if (pendingKey) dialog.current?.showModal(); else dialog.current?.close() }, [pendingKey])
+  async function connectWallet() {
+    setWalletBusy(true); setWalletError(undefined)
+    try {
+      if (!walletProvider.current) {
+        const sdk = await import('accounts')
+        const provider = sdk.Provider.create({ adapter: sdk.tempoWallet(), chains: [tempoModerato], testnet: true, storage: sdk.Storage.memory(), persistCredentials: false })
+        provider.on('accountsChanged', accounts => setWalletAddress(accounts[0]))
+        provider.on('chainChanged', () => setWalletAddress(undefined))
+        walletProvider.current = provider
+      }
+      await walletProvider.current.request({ method: 'wallet_connect', params: [{ chainId: '0xa5bf' }] })
+      const [walletChain, accounts, rpcChain] = await Promise.all([
+        walletProvider.current.request({ method: 'eth_chainId' }),
+        walletProvider.current.request({ method: 'eth_accounts' }),
+        walletPublicClient.getChainId(),
+      ])
+      const connected = accounts[0]
+      if (!connected || !isAddress(connected)) throw new Error('The wallet has no connected account.')
+      if (Number(walletChain) !== 42431 || rpcChain !== 42431) throw new Error('The wallet must be on Tempo testnet 42431 for account-page cutting.')
+      setWalletAddress(connected)
+    } catch (error) { setWalletError(error instanceof Error ? error.message : String(error)) }
+    finally { setWalletBusy(false) }
+  }
+  async function walletRevoke(key: string): Promise<ActionResult> {
+    if (!walletProvider.current || !walletAddress || walletAddress.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
+    setWalletBusy(true); setWalletError(undefined)
+    try {
+      const [walletChain, accounts, rpcChain] = await Promise.all([
+        walletProvider.current.request({ method: 'eth_chainId' }),
+        walletProvider.current.request({ method: 'eth_accounts' }),
+        walletPublicClient.getChainId(),
+      ])
+      const connected = accounts[0]
+      if (!connected || !isAddress(connected) || connected.toLowerCase() !== address.toLowerCase()) throw new Error("Only this account's owner can revoke its keys.")
+      if (Number(walletChain) !== 42431 || rpcChain !== 42431) throw new Error('The wallet must be on Tempo testnet 42431 for account-page cutting.')
+      const hash = await walletProvider.current.request({ method: 'eth_sendTransaction', params: [{ from: connected, ...walletTestCall('revoke', key as Address, undefined, 'testnet') }] })
+      if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error(`Wallet returned an invalid transaction hash: ${String(hash)}`)
+      const receipt = await walletPublicClient.waitForTransactionReceipt({ hash, timeout: 90_000 })
+      if (receipt.status !== 'success') throw new Error(`The wallet transaction was ${receipt.status}.`)
+      const info = await walletPublicClient.readContract({ address: Addresses.accountKeychain, abi: Abis.accountKeychain, functionName: 'getKey', args: [address as Address, key as Address], blockNumber: receipt.blockNumber })
+      if (!info.isRevoked) throw new Error('The transaction succeeded, but getKey did not confirm Revoked.')
+      return { session: '', hash, url: `https://explore.testnet.tempo.xyz/tx/${hash}`, explanation: 'Revoked. getKey confirms Revoked.' }
+    } finally { setWalletBusy(false) }
+  }
   async function revoke(key: string) {
     setAction({ pending: key }); setPendingKey(undefined)
     try {
-      const result = await demo!.onRevoke(key)
+      const result = demo ? await demo.onRevoke(key) : await walletRevoke(key)
       // The API has independently checked getKey. Animate only a confirmed revoke.
       const card = document.getElementById(`key-${key}`)
       if (card) await cut(card, { signal: cutController.current.signal })
@@ -48,6 +102,8 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
   }
   const Container = embedded ? 'section' : 'main'
   const permanent = chain === 'testnet' && address.toLowerCase() === example.account.toLowerCase()
+  const walletEnabled = chain === 'testnet' && !demo
+  const walletMode = walletEnabled ? (walletAddress ? walletAddress.toLowerCase() === address.toLowerCase() ? 'owner' : 'other' : 'disconnected') : undefined
   const child = demo?.child ?? (permanent ? example.child : undefined)
   const counts = { all: data?.keys.length ?? 0, active: data?.keys.filter(key => key.status === 'active').length ?? 0, revoked: data?.keys.filter(key => key.status === 'revoked').length ?? 0, expired: data?.keys.filter(key => key.status === 'expired').length ?? 0 }
   const spenders = data?.keys.filter(key => key.status === 'active' && key.raw && spendingAccess(key.raw) === 'allowed').length ?? 0
@@ -61,6 +117,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
     <h1 className={`big-verdict ${data && !counts.active && data.complete ? 'safe' : ''}`} key={data?.checkedAt}>{data ? `${!data.discoveryComplete ? 'At least ' : ''}${pageVerdict(data.keys, data.permissionsAtTimestamp, data.totalPages > 1)}` : loading ? 'Checking this page’s keys' : 'Key permissions unavailable'}</h1>
     <p className="sub">{data ? `${data.totalKeys.toLocaleString()} keys found. On this page: ${counts.active} active, ${counts.revoked} revoked, ${counts.expired} expired.` : 'Looking is read-only. No wallet needed.'}</p>
     {permanent && <details className="seed-note"><summary>Seeded demo account on the test network. Not real funds.</summary><p>The admin key was revoked. This relationship is known from the demo’s setup, not inferred from key events.</p><p>Admin: <code>{example.admin}</code><br />Child: <code>{example.child}</code></p>{example.transactions.map(tx => <p key={tx.hash}><a href={tx.url} target="_blank" rel="noreferrer">{tx.label}</a></p>)}</details>}
+    {walletEnabled && <section className="state-panel wallet-connect" aria-label="Wallet revoke"><h3>Cut access with your wallet</h3><p>{walletAddress ? <>Connected wallet: <code>{walletAddress}</code></> : 'Connect the account owner’s Tempo Wallet to revoke active keys on this testnet account.'}</p>{walletMode === 'other' && <p>Only this account's owner can revoke its keys.</p>}{walletError && <p role="alert">{walletError}</p>}<button className="btn btn-line" disabled={walletBusy} onClick={connectWallet}>{walletAddress ? 'Reconnect wallet' : 'Connect wallet to revoke'}</button></section>}
     {action.pending && <p role="status" className="state-panel"><span className="spin" /> Waiting for the test network to confirm Revoked</p>}
     {action.error && <p role="alert" className="state-panel">{action.error}</p>}
     {action.result && <p role="status" className="state-panel">{action.result.explanation} {action.result.url && <a href={action.result.url} target="_blank" rel="noreferrer">View revoke transaction</a>}</p>}
@@ -72,7 +129,7 @@ export function AccountView({ chain, address, page, initialData, demo, refreshVe
         {permissionSummaries(data.keys, data.permissionsAtTimestamp).map(summary => <p key={summary} className="fine">{summary}</p>)}
         {counts.all > 0 && <div ref={tabs} className="tabs" role="tablist" aria-label="Keys on this page"><span className="ind" aria-hidden="true" />{(['all','active','revoked','expired'] as const).map(value => <button key={value} role="tab" aria-selected={filter === value} aria-controls="key-cards" onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'active' ? 'Active' : value === 'revoked' ? 'Revoked' : 'Expired'}<b>{counts[value]}</b></button>)}</div>}
         {data.keys.length === 0 ? <div className="state-panel empty-result"><h3>{data.totalKeys ? 'No keys on this page' : data.discoveryComplete ? 'No access keys found' : 'No keys found in the covered history'}</h3><p>{data.totalKeys ? 'Choose a page within the available range.' : 'This account has no key events in the covered block ranges.'}</p><Link className="btn btn-cut" href="/#check">Check another address</Link></div> : <div className="cards" id="key-cards">{sortPageKeys(data.keys, data.permissionsAtTimestamp, child).filter(entry => filter === 'all' || entry.status === filter).map(entry => <KeyCard key={entry.key} entry={entry} nowSeconds={data.permissionsAtTimestamp} chain={chain} permanent={permanent} leftover={Boolean(child && entry.key.toLowerCase() === child.toLowerCase())}
-          onRevoke={demo ? key => setPendingKey(key) : undefined} disabled={Boolean(demo?.busy || action.pending || (demo && entry.key.toLowerCase() === demo.child.toLowerCase() && !demo.childCanRevoke))}
+          onRevoke={demo ? key => setPendingKey(key) : walletEnabled && walletMode === 'owner' ? key => setPendingKey(key) : undefined} walletMode={walletMode} onConnectWallet={connectWallet} disabled={Boolean(demo?.busy || walletBusy || action.pending || (demo && entry.key.toLowerCase() === demo.child.toLowerCase() && !demo.childCanRevoke))}
           disabledReason={demo && entry.key.toLowerCase() === demo.child.toLowerCase() && !demo.childCanRevoke ? 'Complete the child’s payment step before cutting access.' : undefined} />)}{filter !== 'all' && !data.keys.some(key => key.status === filter) && <div className="state-panel">No {filter} keys on this page.</div>}</div>}
         {data.totalPages > 0 && <nav className="pagination" aria-label="Key pages"><div className="page-links">{page > 1 && <><Link href={href(1)}>First</Link><Link href={href(page - 1)}>Previous</Link></>}{page < data.totalPages && <><Link href={href(page + 1)}>Next</Link><Link href={href(data.totalPages)}>Last</Link></>}</div><form action={`/${chain}/${address}`}><label htmlFor={embedded ? 'embedded-page' : 'page'}>Page</label><input id={embedded ? 'embedded-page' : 'page'} name="page" type="number" min="1" max={data.totalPages} defaultValue={page} key={page} required /><span>of {data.totalPages.toLocaleString()}</span><button className="icon-btn">Go</button></form></nav>}
       </>}

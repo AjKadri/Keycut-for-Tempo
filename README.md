@@ -36,9 +36,11 @@ The first four setup steps run together when you choose "Run every step". Every 
 
 ## Cut access with your own wallet
 
-The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page is a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`; the human gate is still pending, so there are no wallet-gate transaction links to claim. The page shows the receipt, `getKey` result, explorer link and signing evidence after a human completes it.
+Wallet revoke verified on testnet. At [the human gate account](https://keycut.ajkadri.dev/testnet/0x1713DB06803C57c4e396B2cecb190E93eD2841Ba), Tempo Wallet signed with a WebAuthn passkey to create disposable key `0xbbe0b440067025D5aa71430659DA4333543d24Bf` and then cut its access. The [authorize transaction](https://explore.testnet.tempo.xyz/tx/0x3fe4ad29a7cad615b3e3ef96b6b4d2b86c7a0b20079c61c952dda00e228d7ee4) and [revoke transaction](https://explore.testnet.tempo.xyz/tx/0xd51ea4b1978bb012c7b2b3d484230f9e088c8476cba3f33094372f5bbf3b7351) both have successful receipts, and `getKey` confirms `isRevoked=true` after the cut.
 
-Testnet account pages are ready for owner cutting after that gate is verified. Mainnet lookup is live. Mainnet cutting stays disabled until a separate human mainnet gate passes, and the app makes no other mainnet writes.
+The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page remains a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`. Testnet account pages now let the connected owner cut access after a confirmation and an independent `getKey` check. Mainnet account pages stay read-only until the mainnet gate passes.
+
+Mainnet lookup is live. Mainnet cutting stays disabled until a separate human mainnet gate passes, and the app makes no other mainnet writes.
 
 ## Numbers
 
@@ -54,7 +56,7 @@ Keycut discovers `KeyAuthorized`, `AdminKeyAuthorized` and `KeyRevoked` events f
 
 For each page, it reads `getKey`, `isAdminKey`, `getAllowedCalls` and active capped-key allowances. Multicall3 batches the permission reads on both chains after parity checks against direct reads. The UI builds each card from these raw fields, so the sentence, status, risk flags and expandable details stay consistent.
 
-The demo uses a pre-funded testnet bank and fresh server-generated throwaway keys. Payment outcomes come from the vendor's balance and confirmed key state.
+The demo uses a pre-funded testnet bank and fresh server-generated throwaway keys. Payment outcomes come from the vendor's balance and confirmed key state. On testnet, a connected account owner can cut an active key through Tempo Wallet. Mainnet account pages remain read-only.
 
 ## Verify it yourself
 

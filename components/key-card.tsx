@@ -13,7 +13,7 @@ export const shortAddress = (value: string) => `${value.slice(0, 8)}…${value.s
 function Address({ value }: { value: string }) {
   return <details className="address"><summary>{shortAddress(value)}</summary><code>{value}</code></details>
 }
-export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disabled, disabledReason, leftover }: { entry: KeyResult; nowSeconds: number; chain: string; permanent?: boolean; onRevoke?: (key: string) => void; disabled?: boolean; disabledReason?: string; leftover?: boolean }) {
+export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disabled, disabledReason, leftover, walletMode, onConnectWallet }: { entry: KeyResult; nowSeconds: number; chain: string; permanent?: boolean; onRevoke?: (key: string) => void; disabled?: boolean; disabledReason?: string; leftover?: boolean; walletMode?: 'owner' | 'other' | 'disconnected'; onConnectWallet?: () => void }) {
   const raw = entry.raw
   const never = raw && (BigInt(raw.expiry) === 0n || BigInt(raw.expiry) > 4_000_000_000n)
   const status = raw ? keyStatus(raw, nowSeconds) : 'unavailable'
@@ -39,7 +39,7 @@ export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disable
       </dl></details>
     </>}
     {entry.riskFlags.length > 0 && <div className={`risks ${risk ? `risk-${risk}` : ''}`} aria-label="Risk flags">{entry.riskFlags.map(flag => <span key={flag}>{flag}</span>)}</div>}
-    {raw && status === 'active' && <KeyAction keyId={entry.key} chain={chain} permanent={permanent} onRevoke={onRevoke} disabled={disabled} disabledReason={disabledReason} />}
+    {raw && status === 'active' && <KeyAction keyId={entry.key} chain={chain} permanent={permanent} onRevoke={onRevoke} disabled={disabled} disabledReason={disabledReason} walletMode={walletMode} onConnectWallet={onConnectWallet} />}
     {rawDetails}
   </article>
 }
