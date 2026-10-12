@@ -14,6 +14,13 @@ test('wallet test requests only the two intended keychain calls on testnet with 
  assert.equal(cut.functionName, 'revokeKey'); assert.deepEqual(cut.args, [key])
  assert.throws(() => walletTestCall('authorize', key), /expiry/)
 })
+test('mainnet gate uses a ten-minute no-call, no-token-limit key and mainnet fee token', () => {
+ const authorize = walletTestCall('authorize', key, 12345n, 'mainnet')
+ assert.equal(authorize.chainId, '0x1079'); assert.equal(authorize.feeToken, '0x20c0000000000000000000000000000000000000')
+ const decoded = decodeFunctionData({ abi: Abis.accountKeychain, data: authorize.data })
+ assert.deepEqual(decoded.args, [key, 0, { expiry: 12345n, enforceLimits: true, limits: [], allowAnyCalls: false, allowedCalls: [] }])
+ assert.equal(walletTestCall('revoke', key, undefined, 'mainnet').chainId, '0x1079')
+})
 test('signing evidence distinguishes main key, access key, and missing or unknown evidence', () => {
  assert.match(walletTestSigner({ type: 'webAuthn' }), /main key/)
  assert.match(walletTestSigner({ type: 'secp256k1' }), /main key/)

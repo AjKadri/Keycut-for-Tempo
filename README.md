@@ -36,7 +36,7 @@ The first four setup steps run together when you choose "Run every step". Every 
 
 ## Cut access with your own wallet
 
-The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page is a testnet-only gate through Tempo Wallet and the Tempo Accounts SDK. It creates one disposable key and requests only the keychain's `revokeKey` write when you choose "Cut access". The human wallet gate is still pending in the current browser environment, so there are no wallet-gate transaction links to claim. The page shows the receipt, `getKey` result, explorer link and signing evidence after a human completes it.
+The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page is a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`; the human gate is still pending, so there are no wallet-gate transaction links to claim. The page shows the receipt, `getKey` result, explorer link and signing evidence after a human completes it.
 
 Testnet account pages are ready for owner cutting after that gate is verified. Mainnet lookup is live. Mainnet cutting stays disabled until a separate human mainnet gate passes, and the app makes no other mainnet writes.
 
