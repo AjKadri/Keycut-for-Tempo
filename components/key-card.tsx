@@ -1,6 +1,7 @@
 'use client'
 
 import { formatUnits } from 'viem'
+import { keySummary } from '../lib/key-summary'
 import { riskLevel } from '../lib/key-presentation'
 import { KeyScope } from './key-scope'
 import { DateValue } from './date-value'
@@ -23,10 +24,10 @@ export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disable
   const positiveLimits = raw?.limits.filter(token => BigInt(token.remaining) > 0n) ?? []
   return <article id={`key-${entry.key}`} className={`card found ${risk === 'high' || leftover ? 'flag' : ''}`} aria-label={`Key ${entry.key}`}>
     <div className="head"><span className="kind">{leftover ? 'Child key' : raw?.isAdmin ? 'Admin key' : 'Access key'}</span><Address value={entry.key} /><div className="card-badges"><span className={`badge ${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>{risk && <span className={`badge risk-${risk}`}>{risk === 'high' ? 'High risk' : 'Review'}</span>}</div></div>
-    {leftoverNote}<p className="sr-only">{entry.sentence}</p>
+    {leftoverNote}
     {!raw ? <p role="alert">We couldn't read this key's permissions. Try the lookup again.</p> : <>
       {raw.isAdmin && <p className="notice">Admin key: can create and revoke other keys.</p>}
-      <dl className="permission-grid">
+      <p className="key-sentence">{keySummary(raw, nowSeconds)}</p><details className="permission-details"><summary>Permission details</summary><dl className="permission-grid">
         <div><dt>Spending cap</dt><dd>{!raw.enforceLimits ? 'No cap' : <>
           <span className="subtext">Remaining allowance · known stablecoins only</span>
           {positiveLimits.length === 0 && <p>No remaining allowance among known stablecoins</p>}
@@ -35,7 +36,7 @@ export function KeyCard({ entry, nowSeconds, chain, permanent, onRevoke, disable
         </>}</dd></div>
         <div><dt>Who it can pay / call</dt><dd><KeyScope raw={raw} chain={chain} /></dd></div>
         <div><dt>Expiry</dt><dd>{never ? 'Never expires' : <DateValue value={raw.expiry} />}</dd></div>
-      </dl>
+      </dl></details>
     </>}
     {entry.riskFlags.length > 0 && <div className={`risks ${risk ? `risk-${risk}` : ''}`} aria-label="Risk flags">{entry.riskFlags.map(flag => <span key={flag}>{flag}</span>)}</div>}
     {raw && status === 'active' && <KeyAction keyId={entry.key} chain={chain} permanent={permanent} onRevoke={onRevoke} disabled={disabled} disabledReason={disabledReason} />}

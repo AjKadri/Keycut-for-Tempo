@@ -39,7 +39,7 @@ export function countUp(el: HTMLElement, duration = 1400) {
 }
 export function onVisible(el: HTMLElement | null, fn: (el: HTMLElement) => void, threshold = .35) {
   if (!el) return () => {}
-  if (reducedMotion()) { fn(el); return () => {} }
+  if (reducedMotion() || typeof IntersectionObserver === 'undefined') { fn(el); return () => {} }
   const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); fn(el) } }, { threshold })
   observer.observe(el); return () => observer.disconnect()
 }
@@ -70,4 +70,11 @@ export async function paymentMotion(board: HTMLElement, child: HTMLElement, shop
       await coin.animate([{ transform: `translate(${x-20}px,${y}px)` }, { transform: `translate(${x-44}px,${y+34}px) scale(.5)`, opacity: 0 }], { duration: 600, fill: 'forwards' }).finished
     }
   } finally { coin.remove(); wall.remove() }
+}
+
+export function reveal(el: HTMLElement, selector: string) {
+  if (reducedMotion() || typeof IntersectionObserver === 'undefined') return
+  el.querySelectorAll<HTMLElement>(selector).forEach((node, index) => {
+    node.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 450, delay: index * 75, easing: 'ease-out' })
+  })
 }

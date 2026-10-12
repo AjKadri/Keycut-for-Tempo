@@ -4,7 +4,7 @@ See who can spend. Cut unwanted access.
 
 Keycut shows every access key that can spend from a Tempo account, explains each one in plain words, and helps the owner cut off the ones they don't want. It is for teams that give AI agents and apps permission to pay on Tempo.
 
-[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) · Demo video: coming
+[Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent example](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A) · [Demo video](https://keycut.ajkadri.dev/videos/keycut-live-walkthrough.mp4)
 
 ## The problem
 

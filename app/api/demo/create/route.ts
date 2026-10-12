@@ -1,3 +1,4 @@
+import { BaseError } from 'viem'
 import { bankClient, createScenario, type DemoEvent } from '../../../../lib/demo'
 import { sealSession } from '../../../../lib/demo-session'
 import { demoBody, demoError, DemoRequestError } from '../../../../lib/demo-http'
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
           const { session } = await createScenario(emit)
           emit({ type: 'ready', account: session.account, admin: session.admin, child: session.childId, vendor: session.vendor, session: sealSession(session) })
         } catch (error) {
+          console.error('Demo setup failed:', error instanceof BaseError ? error.shortMessage : error instanceof Error ? error.message : 'Unknown setup error')
           const message = error instanceof Error && /bank|setup|Funding failed/.test(error.message) ? error.message : 'Demo setup could not be completed. You can still view the leftover example.'
           emit({ type: 'error', error: message })
         } finally { if (connected) controller.close() }
