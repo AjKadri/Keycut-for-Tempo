@@ -108,3 +108,12 @@ footer { margin-top: 40px; color: #475569; font-size: .8rem; line-height: 1.7; p
 .leftover-note { margin: 12px 0; }
 .leftover-note p { margin-top: 5px; }
 .leftover-label { color: #0f766e; font-size: 12px; }
+
+/* Embedded coverage stays beside its content instead of sticking over the grid. */
+.embedded-account .coverage { position: static; margin: 20px 0; }
+.scope-detail summary { cursor: pointer; color: #0f172a; line-height: 1.6; }
+.scope-values { font-size: .8rem; color: #475569; margin-top: 10px; }
+.scope-values p { margin: 8px 0; }
+.scope-values code { display: block; overflow-wrap: anywhere; }
+.vendor-balance details { font-size: .8rem; color: #475569; }
+.vendor-balance summary { cursor: pointer; }

@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { formatUnits } from 'viem'
 import { useState } from 'react'
 import { createDemo, demoAction, type DemoReady, type ActionResult } from '../lib/demo-api'
 import type { DemoEvent } from '../lib/demo'
@@ -58,7 +59,7 @@ export function DemoView() {
           {index === 3 && <p>{results[3]?.explanation ?? 'Try another 1 test AlphaUSD payment. The vendor’s balance decides whether anything arrived.'}</p>}
           {results[index]?.url && <a href={results[index].url!} target="_blank" rel="noreferrer">View transaction</a>}
           {results[index]?.submission && <p className="subtext">{results[index].submission}</p>}
-          {results[index]?.vendorReceived !== undefined && <p className="subtext">Vendor balance change: {results[index].vendorReceived} base units (6 decimals). Before: {results[index].before}. After: {results[index].after}.</p>}
+          {results[index]?.vendorReceived !== undefined && <div className="vendor-balance"><p>Vendor balance: {formatUnits(BigInt(results[index].before!), 6)} → {formatUnits(BigInt(results[index].after!), 6)} AlphaUSD</p><details><summary>Base units</summary><p className="subtext">6 decimals. Before: {results[index].before}. After: {results[index].after}. Change: {results[index].vendorReceived}.</p></details></div>}
           {step === index && <button disabled={busy} onClick={run}>{busy ? 'Waiting for the test network…' : index === 0 ? 'Create demo account' : index === 1 ? 'Make the child pay' : index === 2 ? 'Revoke the child key' : 'Attempt the payment'}</button>}
         </article>)}
         {error && <div role="alert" className="state-panel"><h2>Couldn’t confirm this step</h2><p>{error}</p><p><Link href={`/testnet/${example.account}`} prefetch={true}>See a leftover key</Link></p>{transactions.length > 0 && !ready && <p className="subtext">Setup transactions above may have completed. Reloading starts a different throwaway account.</p>}</div>}
