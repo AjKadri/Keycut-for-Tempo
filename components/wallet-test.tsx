@@ -120,7 +120,7 @@ export function WalletTest() {
         : info.keyId.toLowerCase() === test.id.toLowerCase() && !info.isRevoked && info.expiry === BigInt(test.expiry) && info.enforceLimits === (mode === 'mainnet')
       const expected = action === 'revoke' ? 'getKey confirms Revoked' : mode === 'mainnet' ? 'getKey confirms an expiry-limited no-call key' : 'getKey confirms the one-hour uncapped test key'
       update({ getKey: info, claim: `${passed ? 'PASS' : 'FAIL'} ${expected}.` })
-    } catch (value) { error(`${item.action}: getKey`, value); update({ claim: 'Unverified: getKey could not be read.' }) }
+    } catch (value) { error(`${item.action}: getKey`, value); update({ claim: 'FAIL getKey could not be read.' }) }
     try {
       const transaction = await clients[mode].request({ method: 'eth_getTransactionByHash', params: [hash] })
       const signature = transaction && 'signature' in transaction ? transaction.signature : undefined
