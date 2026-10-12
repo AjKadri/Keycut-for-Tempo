@@ -3,6 +3,7 @@ export const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
 export const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, reducedMotion() ? 0 : ms))
 type CutOptions = { signal?: AbortSignal }
 const activeCuts = new WeakMap<HTMLElement, () => void>()
+const countedUp = new WeakSet<HTMLElement>()
 
 export function cut(el: HTMLElement, options: CutOptions = {}) {
   if (reducedMotion() || !el.isConnected || !el.parentElement) return Promise.resolve()
@@ -77,6 +78,8 @@ export async function swapText(el: HTMLElement, text: string) {
   await el.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 320 }).finished
 }
 export function countUp(el: HTMLElement, duration = 1400) {
+  if (countedUp.has(el)) return () => {}
+  countedUp.add(el)
   const raw = el.dataset.to ?? '0', target = Number(raw), decimals = raw.split('.')[1]?.length ?? 0
   const paint = (value: number) => { el.textContent = value.toLocaleString('en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + (el.dataset.suffix ?? '') }
   if (reducedMotion() || typeof requestAnimationFrame === 'undefined') { paint(target); return () => {} }
