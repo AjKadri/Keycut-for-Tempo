@@ -6,7 +6,9 @@ See who can spend. Cut unwanted access.
 
 [Live app](https://keycut.ajkadri.dev) · [Live demo](https://keycut.ajkadri.dev/demo) · [Permanent leftover key](https://keycut.ajkadri.dev/testnet/0xE5CB1Dd82e60Df2A1cd6b58dF218aea7d535521A)
 
-Keycut lists the access keys that can spend from a Tempo account and explains each one in plain words. Tempo's [TIP-1049](https://github.com/tempoxyz/tempo/blob/main/tips/tip-1049.md) leaves a child key active when its admin key is revoked, so an old agent can keep payment access after the agent is retired. Keycut finds that leftover access and lets the owner cut it on testnet.
+[Demo video](https://youtu.be/w7cM7eyOgIA) · [Pitch video](https://youtu.be/ihl1y0YPkWU)
+
+Keycut lists the access keys that can spend from a Tempo account and explains each one in plain words. Tempo's [TIP-1049](https://github.com/tempoxyz/tempo/blob/main/tips/tip-1049.md) leaves a child key active when its admin key is revoked, so an old agent can keep payment access after the agent is retired. Keycut finds that leftover access and lets the owner cut it with their own wallet, on testnet and mainnet.
 
 ## Try it in 60 seconds
 
