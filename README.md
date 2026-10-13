@@ -1,4 +1,4 @@
-![Keycut logo](public/logo.png)
+<p><img src="public/logo.png" width="72" alt="Keycut logo"></p>
 
 # Keycut for Tempo
 
@@ -9,6 +9,12 @@ See who can spend. Cut unwanted access.
 [Demo video](https://youtu.be/w7cM7eyOgIA) · [Pitch video](https://youtu.be/ihl1y0YPkWU)
 
 Keycut lists the access keys that can spend from a Tempo account and explains each one in plain words. Tempo's [TIP-1049](https://github.com/tempoxyz/tempo/blob/main/tips/tip-1049.md) leaves a child key active when its admin key is revoked, so an old agent can keep payment access after the agent is retired. Keycut finds that leftover access and lets the owner cut it with their own wallet, on testnet and mainnet.
+
+<p><img src="public/screenshots/hero-cut.gif" width="720" alt="Hero ledger cut sequence"></p>
+
+<p><img src="public/screenshots/account.png" width="720" alt="Permanent leftover key example"></p>
+
+<p><img src="public/screenshots/demo.png" width="720" alt="Completed seven-step demo"></p>
 
 ## Try it in 60 seconds
 
@@ -22,27 +28,25 @@ Keycut lists the access keys that can spend from a Tempo account and explains ea
 
 The first four setup steps run together when you choose "Run every step". Every transaction link comes from the live Tempo testnet response. Test AlphaUSD has no value.
 
-![Home hero after the seeded cut](public/screenshots/hero.png)
+<details>
+<summary>More screenshots</summary>
 
-![Hero cut animation](public/screenshots/hero-cut.gif)
+<p><img src="public/screenshots/account-cut.png" width="720" alt="Permanent leftover key after cutting access"></p>
 
-![Permanent leftover example with the active child card and coral risk flag](public/screenshots/account.png)
+<p><img src="public/screenshots/learn.png" width="720" alt="Learn page try-it after revoking the admin"></p>
 
-![Live demo just after child revoke, with the revoked card and confirmation toast](public/screenshots/account-cut.png)
+<p><img src="public/screenshots/mobile.png" width="720" alt="Home page at 390px"></p>
 
-![Completed live demo with all seven steps and the real account view](public/screenshots/demo.png)
-
-![Learn page try-it after revoking the admin illustration](public/screenshots/learn.png)
-
-![Home page at 390px](public/screenshots/mobile.png)
+</details>
 
 ## Cut access with your own wallet
 
-Wallet revoke verified on testnet and mainnet. On [the human gate account](https://keycut.ajkadri.dev/testnet/0x1713DB06803C57c4e396B2cecb190E93eD2841Ba), Tempo Wallet signed with a WebAuthn passkey to create and cut disposable testnet key `0xbbe0b440067025D5aa71430659DA4333543d24Bf`. The [testnet authorize transaction](https://explore.testnet.tempo.xyz/tx/0x3fe4ad29a7cad615b3e3ef96b6b4d2b86c7a0b20079c61c952dda00e228d7ee4) and [testnet revoke transaction](https://explore.testnet.tempo.xyz/tx/0xd51ea4b1978bb012c7b2b3d484230f9e088c8476cba3f33094372f5bbf3b7351) have successful receipts. The same account created and cut mainnet key `0xf634DDcC82EF49eA01Af7B28fBBB41A3217e396a`; the [mainnet authorize transaction](https://explore.tempo.xyz/tx/0x8719c2673ff50dc2c68529459f723399f97ff358ad8a3deb1ba1611cbed2efec) and [mainnet revoke transaction](https://explore.tempo.xyz/tx/0x728de0de61c49c9ae93848d057031dbfb2e2ac2a73eb2a051aa494057f3d11c2) also have successful receipts. Direct `getKey` reads confirm `isRevoked=true` after both cuts.
+Owners can cut a key with their own Tempo Wallet on testnet and mainnet. Keycut only ever asks the wallet to sign `revokeKey`, and confirms the key reads as revoked on chain afterwards. Verified on both networks:
 
-The unlinked [/wallet-test](https://keycut.ajkadri.dev/wallet-test) page remains a two-network gate through Tempo Wallet and the Tempo Accounts SDK. Testnet uses faucet funds. Mainnet requires an explicit real-fee acknowledgement, shows the connected `pathUSD` balance, creates a ten-minute key with no token limits and no call permissions, and never uses a faucet. Both modes request only `authorizeKey` and `revokeKey`. Testnet and mainnet account pages now let the connected owner cut access after a confirmation and an independent `getKey` check.
-
-Mainnet lookup and owner-wallet cutting are live after the separate human mainnet gate. The app makes no other mainnet writes.
+- [Testnet authorize](https://explore.testnet.tempo.xyz/tx/0x3fe4ad29a7cad615b3e3ef96b6b4d2b86c7a0b20079c61c952dda00e228d7ee4)
+- [Testnet revoke](https://explore.testnet.tempo.xyz/tx/0xd51ea4b1978bb012c7b2b3d484230f9e088c8476cba3f33094372f5bbf3b7351)
+- [Mainnet authorize](https://explore.tempo.xyz/tx/0x8719c2673ff50dc2c68529459f723399f97ff358ad8a3deb1ba1611cbed2efec)
+- [Mainnet revoke](https://explore.tempo.xyz/tx/0x728de0de61c49c9ae93848d057031dbfb2e2ac2a73eb2a051aa494057f3d11c2)
 
 ## Numbers
 
