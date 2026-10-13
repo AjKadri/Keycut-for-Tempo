@@ -10,11 +10,7 @@ See who can spend. Cut unwanted access.
 
 Keycut lists the access keys that can spend from a Tempo account and explains each one in plain words. Tempo's [TIP-1049](https://github.com/tempoxyz/tempo/blob/main/tips/tip-1049.md) leaves a child key active when its admin key is revoked, so an old agent can keep payment access after the agent is retired. Keycut finds that leftover access and lets the owner cut it with their own wallet, on testnet and mainnet.
 
-<p><img src="public/screenshots/hero-cut.gif" width="720" alt="Hero ledger cut sequence"></p>
-
 <p><img src="public/screenshots/account.png" width="720" alt="Permanent leftover key example"></p>
-
-<p><img src="public/screenshots/demo.png" width="720" alt="Completed seven-step demo"></p>
 
 ## Try it in 60 seconds
 
@@ -27,17 +23,6 @@ Keycut lists the access keys that can spend from a Tempo account and explains ea
 7. Click "Try to pay again" and check that the vendor balance stays unchanged.
 
 The first four setup steps run together when you choose "Run every step". Every transaction link comes from the live Tempo testnet response. Test AlphaUSD has no value.
-
-<details>
-<summary>More screenshots</summary>
-
-<p><img src="public/screenshots/account-cut.png" width="720" alt="Permanent leftover key after cutting access"></p>
-
-<p><img src="public/screenshots/learn.png" width="720" alt="Learn page try-it after revoking the admin"></p>
-
-<p><img src="public/screenshots/mobile.png" width="720" alt="Home page at 390px"></p>
-
-</details>
 
 ## Cut access with your own wallet
 
